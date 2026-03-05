@@ -3,7 +3,7 @@
  * Connects frontend to the Express backend
  */
 
-const API_BASE = 'http://localhost:3001';
+const API_BASE = window.location.origin;
 
 export async function apiPost(path, data = {}, token = null) {
     const headers = { 'Content-Type': 'application/json' };
