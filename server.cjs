@@ -476,6 +476,16 @@ io.on('connection', (socket) => {
     });
 });
 
+// Serve static files from the frontend build
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Non-API routes serve index.html for client-side routing
+app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+        res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    }
+});
+
 // ═══════════════════════════════════════════════════
 // START SERVER
 // ═══════════════════════════════════════════════════
