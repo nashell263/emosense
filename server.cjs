@@ -11,6 +11,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
+const path = require('path');
 const { getDb } = require('./server/database.cjs');
 const gemini = require('./server/gemini.cjs');
 const nlp = require('./server/nlp.cjs');
@@ -513,11 +514,14 @@ io.on('connection', (socket) => {
     });
 });
 
+// Serve static files from the public folder (for uploads/assets)
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+
 // Serve static files from the frontend build
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Non-API routes serve index.html for client-side routing
-app.get('*splat', (req, res) => {
+app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
         res.sendFile(path.join(__dirname, 'dist', 'index.html'));
     }
