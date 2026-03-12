@@ -12,6 +12,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const { getDb } = require('./server/database.cjs');
 const gemini = require('./server/gemini.cjs');
 const nlp = require('./server/nlp.cjs');
@@ -19,6 +20,12 @@ const growth = require('./server/growth-engine.cjs');
 
 // Init AI and NLP
 nlp.initNLP();
+
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, 'public/uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // Configure Multer for multimedia
 const storage = multer.diskStorage({
@@ -523,7 +530,12 @@ app.use(express.static(path.join(__dirname, 'dist')));
 // Non-API routes serve index.html for client-side routing
 app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+        const indexPath = path.join(__dirname, 'dist', 'index.html');
+        if (fs.existsSync(indexPath)) {
+            res.sendFile(indexPath);
+        } else {
+            res.status(404).send('Frontend not built. Please run "npm run build".');
+        }
     }
 });
 
