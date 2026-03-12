@@ -88,6 +88,16 @@ function initTables() {
       FOREIGN KEY (user_id) REFERENCES user_profiles(id)
     );
 
+    CREATE TABLE IF NOT EXISTS pet_stats (
+      user_id TEXT PRIMARY KEY,
+      happiness INTEGER DEFAULT 50,
+      intelligence INTEGER DEFAULT 10,
+      mood TEXT DEFAULT 'Neutral',
+      relationship_level INTEGER DEFAULT 1,
+      last_interaction DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES user_profiles(id)
+    );
+
     CREATE TABLE IF NOT EXISTS feedback (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       session_type TEXT NOT NULL CHECK(session_type IN ('ai', 'counselor')),

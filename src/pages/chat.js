@@ -38,8 +38,24 @@ export function renderChat(container) {
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2C9 2 7 4 7 6.5c0 1 .3 1.8.8 2.5C6.3 9.8 5 11.3 5 13c0 1.5.8 2.8 2 3.5-.2.5-.3 1-.3 1.5 0 2.2 1.8 4 4 4h2.6c2.2 0 4-1.8 4-4 0-.5-.1-1-.3-1.5 1.2-.7 2-2 2-3.5 0-1.7-1.3-3.2-2.8-3.9.5-.7.8-1.5.8-2.6C17 4 15 2 12 2z"/></svg>
             </div>
             <div class="chat-header-text">
-              <h2>EmoSense Counseling Assistant</h2>
-              <p><span class="online-dot"></span> Online · Ready to listen</p>
+              <h2>EmoSense Pet</h2>
+              <p><span class="online-dot"></span> Online Companion</p>
+            </div>
+          </div>
+
+          <!-- Stats Dashboard -->
+          <div class="pet-stats-overlay" id="pet-stats-overlay">
+            <div class="stat-item" title="Happiness">
+              <span class="stat-icon">❤️</span>
+              <div class="stat-progress-bg"><div id="stat-joy" class="stat-progress" style="width: 50%;"></div></div>
+            </div>
+            <div class="stat-item" title="Intelligence">
+              <span class="stat-icon">🧠</span>
+              <div class="stat-progress-bg"><div id="stat-intel" class="stat-progress" style="width: 10%;"></div></div>
+            </div>
+            <div class="stat-item" title="Bond Level">
+              <span class="stat-icon">🤝</span>
+              <div class="stat-progress-bg"><div id="stat-bond" class="stat-progress" style="width: 1%;"></div></div>
             </div>
           </div>
           <div class="chat-header-actions">
@@ -413,15 +429,8 @@ export function renderChat(container) {
         body: JSON.stringify({
           message: msg,
           sessionId,
-          emotionData: {
-            dominantEmotion: localResult.analysis.dominantEmotion,
-            confidence: localResult.analysis.confidence,
-            sentiment: localResult.analysis.sentiment,
-            sentimentScore: localResult.analysis.sentimentScore,
-            secondaryEmotions: localResult.analysis.secondaryEmotions,
-            isCrisis: localResult.analysis.isCrisis,
-            emotions: localResult.analysis.emotions?.map(e => ({ type: e.type, confidence: e.confidence }))
-          }
+          attachment,
+          replyToId
         }),
         signal: controller.signal
       });
@@ -429,8 +438,9 @@ export function renderChat(container) {
       const apiResult = await res.json();
       typingEl.remove();
 
-      if (apiResult.response && (apiResult.source === 'groq' || apiResult.source === 'gemini')) {
+      if (apiResult.response) {
         appendMessage('bot', apiResult.response);
+        if (apiResult.petStats) updatePetUI(apiResult.petStats);
       } else {
         appendMessage('bot', localResult.response);
       }
@@ -558,6 +568,15 @@ function showTyping(container) {
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
   return div;
+}
+
+function updatePetUI(stats) {
+  const joy = document.getElementById('stat-joy');
+  const intel = document.getElementById('stat-intel');
+  const bond = document.getElementById('stat-bond');
+  if (joy) joy.style.width = stats.happiness + '%';
+  if (intel) intel.style.width = Math.min(100, (stats.intelligence / 10)) + '%';
+  if (bond) bond.style.width = stats.relationship_level + '%';
 }
 
 function updateEmotionDisplay(analysis) {

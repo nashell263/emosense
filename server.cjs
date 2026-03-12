@@ -14,6 +14,7 @@ const multer = require('multer');
 const { getDb } = require('./server/database.cjs');
 const gemini = require('./server/gemini.cjs');
 const nlp = require('./server/nlp.cjs');
+const growth = require('./server/growth-engine.cjs');
 
 // Init AI and NLP
 nlp.initNLP();
@@ -65,13 +66,27 @@ function authMiddleware(req, res, next) {
 // ═══════════════════════════════════════════════════
 
 app.post('/api/chat', async (req, res) => {
-    const { message, sessionId, emotionData } = req.body;
+    const { message, sessionId } = req.body;
     if (!message) return res.status(400).json({ error: 'Message required' });
 
     try {
         if (gemini.isInitialized()) {
-            const result = await gemini.chat(sessionId || 'default', message, emotionData || null);
-            res.json({ response: result.response, source: result.source });
+            const sid = sessionId || 'default';
+            // 1. Analyze emotion
+            const emotionData = await nlp.analyzeEmotion(message);
+
+            // 2. Update Pet Stats
+            const updatedStats = await growth.updatePetStats(sid, message, emotionData.dominantEmotion === 'joy' ? 'positive' : 'neutral');
+
+            // 3. Get AI Response with stats
+            const result = await gemini.chat(sid, message, { ...emotionData, stats: updatedStats });
+
+            res.json({
+                response: result.response,
+                source: result.source,
+                emotion: emotionData,
+                petStats: updatedStats
+            });
         } else {
             res.json({ response: null, source: 'local' });
         }
