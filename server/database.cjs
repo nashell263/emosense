@@ -60,10 +60,32 @@ function initTables() {
     CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       session_id TEXT NOT NULL,
-      sender_type TEXT NOT NULL CHECK(sender_type IN ('student', 'counselor')),
+      sender_type TEXT NOT NULL CHECK(sender_type IN ('student', 'counselor', 'ai')),
       content TEXT NOT NULL,
+      attachment_url TEXT,
+      attachment_type TEXT,
+      reply_to_id INTEGER,
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
+      FOREIGN KEY (session_id) REFERENCES chat_sessions(id),
+      FOREIGN KEY (reply_to_id) REFERENCES messages(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_profiles (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      preferences TEXT,
+      interests TEXT,
+      emotional_baseline TEXT,
+      last_active DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS user_memories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      content TEXT NOT NULL,
+      importance INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES user_profiles(id)
     );
 
     CREATE TABLE IF NOT EXISTS feedback (

@@ -10,9 +10,20 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const path = require('path');
+const multer = require('multer');
 const { getDb } = require('./server/database.cjs');
 const gemini = require('./server/gemini.cjs');
+const nlp = require('./server/nlp.cjs');
+
+// Init AI and NLP
+nlp.initNLP();
+
+// Configure Multer for multimedia
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, 'public/uploads/'),
+    filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+});
+const upload = multer({ storage });
 
 const app = express();
 const server = http.createServer(app);
@@ -68,6 +79,13 @@ app.post('/api/chat', async (req, res) => {
         console.error('AI error:', err.message?.substring(0, 150));
         res.json({ response: null, source: 'local' });
     }
+});
+
+// MULTIMEDIA UPLOAD ENDPOINT
+app.post('/api/upload', upload.single('file'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const url = `/uploads/${req.file.filename}`;
+    res.json({ url, type: req.file.mimetype });
 });
 
 app.post('/api/chat/reset', (req, res) => {
@@ -440,16 +458,20 @@ io.on('connection', (socket) => {
 
     // Messages
     socket.on('send-message', (data) => {
-        const { sessionId, senderType, content } = data;
+        const { sessionId, senderType, content, attachmentUrl, attachmentType, replyToId } = data;
 
-        db.prepare(
-            'INSERT INTO messages (session_id, sender_type, content) VALUES (?, ?, ?)'
-        ).run(sessionId, senderType, content);
+        const result = db.prepare(
+            'INSERT INTO messages (session_id, sender_type, content, attachment_url, attachment_type, reply_to_id) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run(sessionId, senderType, content, attachmentUrl || null, attachmentType || null, replyToId || null);
 
         io.to(sessionId).emit('new-message', {
+            id: result.lastInsertRowid,
             sessionId,
             senderType,
             content,
+            attachmentUrl,
+            attachmentType,
+            replyToId,
             timestamp: new Date().toISOString()
         });
     });

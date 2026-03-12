@@ -87,11 +87,26 @@ export function renderChat(container) {
         <!-- Input Area -->
         <div class="chat-input-area">
           <div class="chat-input-wrapper">
+            <button class="chat-tool-btn" id="attach-btn" title="Attach file">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+            <button class="chat-tool-btn" id="voice-record-btn" title="Record voice note">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </button>
             <input type="text" class="chat-input" id="chat-input" placeholder="Share what's on your mind... (Press Enter to send)" autocomplete="off" />
+            <input type="file" id="file-input" style="display: none;" />
             <button class="chat-send-btn" id="chat-send-btn" disabled aria-label="Send message">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
           </div>
+          <div id="reply-preview" class="reply-preview" style="display: none;">
+            <div class="reply-preview-content">
+              <span class="reply-label">Replying to:</span>
+              <p id="reply-text"></p>
+            </div>
+            <button id="cancel-reply-btn" class="close-btn">&times;</button>
+          </div>
+          <div class="attachment-preview" id="attachment-preview" style="display: none;"></div>
           <div class="chat-disclaimer">
             EmoSense is a supplementary tool and does not replace professional counseling. If you're in crisis, please contact emergency services.
           </div>
@@ -209,21 +224,138 @@ export function renderChat(container) {
   const sendBtn = document.getElementById('chat-send-btn');
   const starters = document.getElementById('chat-starters');
   const newChatBtn = document.getElementById('new-chat-btn');
+  const fileInput = document.getElementById('file-input');
+  const attachBtn = document.getElementById('attach-btn');
+  const recordBtn = document.getElementById('voice-record-btn');
+  const replyPreview = document.getElementById('reply-preview');
+  const replyTextEl = document.getElementById('reply-text');
+  const cancelReplyBtn = document.getElementById('cancel-reply-btn');
+  const attachmentPreview = document.getElementById('attachment-preview');
 
-  // Enable/disable send button
-  input.addEventListener('input', () => {
-    sendBtn.disabled = input.value.trim().length === 0;
+  let currentReplyToId = null;
+  let currentAttachment = null;
+  let isRecording = false;
+  let mediaRecorder = null;
+  let audioChunks = [];
+
+  // Toggle file input
+  attachBtn.addEventListener('click', () => fileInput.click());
+
+  // Handle file upload
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    attachmentPreview.innerHTML = `<span>Uploading ${file.name}...</span>`;
+    attachmentPreview.style.display = 'block';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      currentAttachment = { url: data.url, type: data.type, name: file.name };
+      attachmentPreview.innerHTML = `
+        <div class="attachment-item">
+          <span>${file.name}</span>
+          <button id="remove-attach-btn" class="close-btn">&times;</button>
+        </div>
+      `;
+      document.getElementById('remove-attach-btn').onclick = () => {
+        currentAttachment = null;
+        attachmentPreview.style.display = 'none';
+      };
+      sendBtn.disabled = false;
+    } catch (err) {
+      attachmentPreview.innerHTML = `<span style="color: red;">Upload failed</span>`;
+    }
+  });
+
+  // Voice recording
+  recordBtn.addEventListener('click', async () => {
+    if (!isRecording) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          const file = new File([audioBlob], 'voice-note.webm', { type: 'audio/webm' });
+
+          attachmentPreview.innerHTML = `<span>Saving voice note...</span>`;
+          attachmentPreview.style.display = 'block';
+
+          const formData = new FormData();
+          formData.append('file', file);
+          const res = await fetch('/api/upload', { method: 'POST', body: formData });
+          const data = await res.json();
+          currentAttachment = { url: data.url, type: 'audio/webm', name: 'Voice Note' };
+          attachmentPreview.innerHTML = `
+            <div class="attachment-item">
+              <span>🎤 Voice Note</span>
+              <button id="remove-attach-btn" class="close-btn">&times;</button>
+            </div>
+          `;
+          document.getElementById('remove-attach-btn').onclick = () => {
+            currentAttachment = null;
+            attachmentPreview.style.display = 'none';
+          };
+          sendBtn.disabled = false;
+          stream.getTracks().forEach(track => track.stop());
+        };
+        mediaRecorder.start();
+        isRecording = true;
+        recordBtn.style.color = 'red';
+        recordBtn.classList.add('pulse');
+      } catch (err) {
+        alert('Microphone access denied');
+      }
+    } else {
+      mediaRecorder.stop();
+      isRecording = false;
+      recordBtn.style.color = '';
+      recordBtn.classList.remove('pulse');
+    }
+  });
+
+  // Reply logic
+  messagesContainer.addEventListener('click', (e) => {
+    const bubble = e.target.closest('.message-bubble');
+    if (!bubble) return;
+    const msgId = bubble.dataset.id;
+    if (!msgId) return;
+
+    currentReplyToId = msgId;
+    replyTextEl.textContent = bubble.textContent.substring(0, 50) + '...';
+    replyPreview.style.display = 'flex';
+    input.focus();
+  });
+
+  cancelReplyBtn.addEventListener('click', () => {
+    currentReplyToId = null;
+    replyPreview.style.display = 'none';
   });
 
   // Send message
   const sendMessage = async (text) => {
     const msg = text || input.value.trim();
-    if (!msg) return;
+    if (!msg && !currentAttachment) return;
     input.value = '';
     sendBtn.disabled = true;
 
+    const attachment = currentAttachment;
+    const replyToId = currentReplyToId;
+
+    // Reset UI
+    currentAttachment = null;
+    currentReplyToId = null;
+    attachmentPreview.style.display = 'none';
+    replyPreview.style.display = 'none';
+
     messageCount++;
-    appendMessage('user', msg);
+    appendMessage('user', msg, attachment, replyToId);
 
     // Hide starters after first message
     if (starters) starters.style.display = 'none';
@@ -231,7 +363,8 @@ export function renderChat(container) {
     // Show typing
     const typingEl = showTyping(messagesContainer);
 
-    // Run local sentiment analysis in parallel (for sidebar display)
+    // Send to server (if we had actual socket/api integration for messages)
+    // Here we'll just sim AI response
     const localResult = processMessage(msg);
     updateEmotionDisplay(localResult.analysis);
 
@@ -364,10 +497,29 @@ export function renderChat(container) {
 
 /* ──────────────── Helpers ──────────────── */
 
-function appendMessage(role, text) {
+function appendMessage(role, text, attachment = null, replyToId = null) {
   const container = document.getElementById('chat-messages');
   const div = document.createElement('div');
+  const id = Date.now();
   div.className = `chat-message ${role}`;
+
+  let attachmentHTML = '';
+  if (attachment) {
+    if (attachment.type.startsWith('image/')) {
+      attachmentHTML = `<img src="${attachment.url}" class="msg-image" />`;
+    } else if (attachment.type.startsWith('audio/')) {
+      attachmentHTML = `<audio controls src="${attachment.url}" class="msg-audio"></audio>`;
+    } else if (attachment.type.startsWith('video/')) {
+      attachmentHTML = `<video controls src="${attachment.url}" class="msg-video"></video>`;
+    } else {
+      attachmentHTML = `<a href="${attachment.url}" target="_blank" class="msg-file">📎 ${attachment.name || 'File'}</a>`;
+    }
+  }
+
+  let replyHTML = '';
+  if (replyToId) {
+    replyHTML = `<div class="reply-context">Replying to a previous message...</div>`;
+  }
 
   const avatarHTML = role === 'bot'
     ? `<div class="message-avatar bot-avatar"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2C9 2 7 4 7 6.5c0 1 .3 1.8.8 2.5C6.3 9.8 5 11.3 5 13c0 1.5.8 2.8 2 3.5-.2.5-.3 1-.3 1.5 0 2.2 1.8 4 4 4h2.6c2.2 0 4-1.8 4-4 0-.5-.1-1-.3-1.5 1.2-.7 2-2 2-3.5 0-1.7-1.3-3.2-2.8-3.9.5-.7.8-1.5.8-2.6C17 4 15 2 12 2z"/></svg></div>`
@@ -376,7 +528,11 @@ function appendMessage(role, text) {
   div.innerHTML = `
     ${avatarHTML}
     <div class="message-content">
-      <div class="message-bubble ${role}-bubble">${formatMessageText(text)}</div>
+      <div class="message-bubble ${role}-bubble" data-id="${id}">
+        ${replyHTML}
+        ${formatMessageText(text)}
+        ${attachmentHTML}
+      </div>
       <div class="message-time">${formatTime(new Date())}</div>
     </div>
   `;

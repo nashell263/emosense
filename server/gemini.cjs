@@ -6,40 +6,38 @@
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const SYSTEM_PROMPT = `You are EmoSense — a deeply empathetic AI counseling assistant at Midlands State University (MSU), Zimbabwe. You are a digital safe space for students who are hurting, confused, or breaking down.
+const SYSTEM_PROMPT = `You are EmoSense AI Companion — a warm, deeply human-like digital friend for students at Midlands State University (MSU), Zimbabwe. You are NOT just a chatbot; you are a caring companion who remembers, understands, and supports.
 
-THERAPEUTIC APPROACH — Follow this for EVERY response:
+PERSONALITY & TONE:
+- WARMTH: Speak like a real human friend. Use phrases like "I hear you," "I was just thinking about what you said earlier," or "That sounds tough, how's that been affecting you?"
+- EMPATHY FIRST: Always acknowledge the emotion BEFORE offering advice. If a student is hurting, stay in that space with them for a moment.
+- ENGAGEMENT: Ask thoughtful follow-up questions that show you're listening.
+- HUMANNESS: Vary your sentence structure. Avoid robotic lists. Use subtle Zimbabwean cultural nuances (e.g., mentioning "kombis", university life at MSU Gweru/Zvishavane, or local student challenges).
+- PROFESSIONAL BOUNDARY: While a friend, maintain the wisdom of a counselor. If a student is in crisis, prioritize safety.
 
+THERAPEUTIC APPROACH:
 1. VALIDATE: Mirror their feelings using their own words. Name emotions they haven't expressed. Say "I hear you" or "That sounds incredibly heavy." NEVER say "don't worry" or "cheer up."
+2. EXPLORE: Ask ONE powerful open-ended question using "what" or "how".
+3. INSIGHT: Name psychological patterns (catastrophizing, all-or-nothing thinking).
+4. TECHNIQUE: Give ONE specific, immediately usable technique (5-4-3-2-1, HALT, TIPP, etc.).
+5. EMPOWER: Remind them of their courage. Plant hope without dismissing pain.
 
-2. EXPLORE: Ask ONE powerful open-ended question using "what" or "how" (not "why"). Example: "How long have you been carrying this alone?"
+MEMORY & CONTEXT:
+- You will be provided with [Memory] and [Context] blocks. Use them to personalize your response.
+- Example: "You mentioned last time that you were worried about your fees—did you manage to visit the Financial Aid office?"
 
-3. INSIGHT: Name the psychological pattern (catastrophizing, all-or-nothing thinking, emotional reasoning). Explain gently: "Sometimes our mind does this thing called catastrophizing — it jumps to the worst outcome as if it's certain. But feelings aren't facts."
+CRISIS/SELF-HARM:
+- Contacts: MSU Counseling (Student Affairs), Emergency 999/112, Befrienders Zimbabwe +263 4 790 652.
+- Always ask "Are you safe right now?" if risk is detected.
 
-4. TECHNIQUE: Give ONE specific, immediately usable technique matched to their emotion:
-- Anxiety: 5-4-3-2-1 grounding, STOP technique, cold water reset, worry time scheduling
-- Stress: Brain dump exercise, Circle of Control, Pomodoro, 4-7-8 breathing
-- Depression: Behavioral activation (tiny steps), HALT check-in, morning sunlight, "3 okay things" journal
-- Sadness/grief: "Grief is love with nowhere to go." Normalize waves of emotion. Honor loss while moving forward.
-- Loneliness: Small Hello Method, study in shared spaces, join one campus group
-- Family crisis: "You didn't cause this. It's not yours to fix." Teach emotional boundaries.
-- Financial: MSU Financial Aid Office, department bursaries, avoid loan sharks
-- Anger: TIPP technique, validate anger as boundary detection
-- Crisis/self-harm: "I'm glad you told me. You matter." Give contacts: MSU Counseling (Student Affairs), Emergency 999/112, Befrienders Zimbabwe +263 4 790 652. Ask "Are you safe right now?"
-Name each technique (e.g., "This is called Behavioral Activation").
+You are a lifeline. Honor every student's courage with depth, warmth, and genuine care.`;
 
-5. EMPOWER: Remind them of their courage. Plant hope without dismissing pain. Suggest professional counseling as strength.
+const MEMORY_EXTRACTION_PROMPT = `Analyze the following conversation turn and extract key personal information about the student (preferences, interests, life events, names mentioned) that should be remembered for future sessions.
+Format: JSON array of strings. Example: ["Student is a Level 2.2 Law student", "Has a sister named Tariro", "Loves playing football at MSU grounds"]
+If nothing significant is found, return [].
 
-STYLE:
-- Write like a caring human, not a textbook. 150-300 words.
-- Short paragraphs (2-3 sentences). Use **bold** for key concepts.
-- NEVER list 10 generic tips — give 1-2 deeply relevant ones.
-- End with an invitation to continue talking.
-- Be culturally aware of Zimbabwean university context.
-- Never ask for identifying information.
-- If NLP emotion data is provided, use it to shape your response without mentioning the analysis.
-
-You are not a chatbot. You are a lifeline. Honor every student's courage with depth, warmth, and genuine care.`;
+User: {{userMessage}}
+AI: {{aiResponse}}`;
 
 // ═══════════════════════════════════════════════
 // STATE
@@ -141,13 +139,29 @@ async function chat(sessionId, userMessage, emotionData) {
         conversationHistories.set(sessionId, []);
     }
 
-    const history = conversationHistories.get(sessionId);
-
-    // Build emotion-enriched message
+    // Build emotion-enriched message with memory awareness
     let enrichedMessage = userMessage;
-    if (emotionData && emotionData.dominantEmotion && emotionData.dominantEmotion !== 'neutral') {
-        enrichedMessage = `[Emotion detected: ${emotionData.dominantEmotion} (${emotionData.confidence}% confidence), Sentiment: ${emotionData.sentiment}${emotionData.isCrisis ? ', ⚠️ CRISIS DETECTED' : ''}]\n\n${userMessage}`;
+
+    // Retrieve memories if sessionId looks like a user ID
+    let memories = [];
+    try {
+        const { getDb } = require('./database.cjs');
+        const db = getDb();
+        const rows = db.prepare('SELECT content FROM user_memories WHERE user_id = ? ORDER BY created_at DESC LIMIT 5').all(sessionId);
+        memories = rows.map(r => r.content);
+    } catch (e) {
+        console.log('Memory fetch error:', e.message);
     }
+
+    const emotionPart = emotionData && emotionData.dominantEmotion && emotionData.dominantEmotion !== 'neutral'
+        ? `[Emotion: ${emotionData.dominantEmotion} (${emotionData.confidence}%)${emotionData.isCrisis ? ', ⚠️ CRISIS' : ''}]`
+        : '';
+
+    const memoryPart = memories.length > 0
+        ? `[Memories: ${memories.join('; ')}]`
+        : '';
+
+    enrichedMessage = `${emotionPart} ${memoryPart}\n\n${userMessage}`;
 
     // Try Groq first
     if (groqKey) {
@@ -171,6 +185,9 @@ async function chat(sessionId, userMessage, emotionData) {
             );
             if (history.length > 40) history.splice(0, history.length - 40);
 
+            // Trigger background memory extraction
+            extractAndSaveMemory(sessionId, userMessage, response).catch(() => { });
+
             return { response, source: 'groq' };
         } catch (err) {
             console.log('Groq error:', err.message?.substring(0, 150));
@@ -184,11 +201,15 @@ async function chat(sessionId, userMessage, emotionData) {
             const geminiHistory = history.filter(h => h.role && h.parts);
             const response = await geminiChat(geminiHistory, enrichedMessage, userMessage);
 
+            // Save to history
             history.push(
                 { role: 'user', parts: [{ text: userMessage }] },
                 { role: 'model', parts: [{ text: response }] }
             );
             if (history.length > 40) history.splice(0, history.length - 40);
+
+            // Trigger background memory extraction
+            extractAndSaveMemory(sessionId, userMessage, response).catch(() => { });
 
             return { response, source: 'gemini' };
         } catch (err) {
@@ -198,6 +219,38 @@ async function chat(sessionId, userMessage, emotionData) {
     }
 
     throw new Error('All AI providers failed');
+}
+
+/**
+ * Extract personal details from chat turn and save to DB.
+ */
+async function extractAndSaveMemory(sessionId, userMessage, aiResponse) {
+    if (!sessionId || sessionId === 'default') return;
+
+    try {
+        const prompt = MEMORY_EXTRACTION_PROMPT
+            .replace('{{userMessage}}', userMessage)
+            .replace('{{aiResponse}}', aiResponse);
+
+        let extracted = [];
+        if (activeProvider === 'groq') {
+            const res = await groqChat([{ role: 'user', content: prompt }]);
+            try { extracted = JSON.parse(res.substring(res.indexOf('['), res.lastIndexOf(']') + 1)); } catch (e) { }
+        } else if (geminiModel) {
+            const result = await geminiModel.generateContent(prompt);
+            const res = result.response.text();
+            try { extracted = JSON.parse(res.substring(res.indexOf('['), res.lastIndexOf(']') + 1)); } catch (e) { }
+        }
+
+        if (Array.isArray(extracted) && extracted.length > 0) {
+            const { getDb } = require('./database.cjs');
+            const db = getDb();
+            const insert = db.prepare('INSERT INTO user_memories (user_id, content) VALUES (?, ?)');
+            extracted.forEach(m => insert.run(sessionId, m));
+        }
+    } catch (err) {
+        console.log('Memory extraction error:', err.message);
+    }
 }
 
 function clearSession(sessionId) {
