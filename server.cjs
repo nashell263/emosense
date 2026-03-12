@@ -528,7 +528,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Non-API routes serve index.html for client-side routing
-app.get('*', (req, res) => {
+app.get('*any', (req, res) => {
     if (!req.path.startsWith('/api')) {
         const indexPath = path.join(__dirname, 'dist', 'index.html');
         if (fs.existsSync(indexPath)) {
