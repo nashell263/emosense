@@ -17,6 +17,7 @@ const { getDb } = require('./server/database.cjs');
 const gemini = require('./server/gemini.cjs');
 const nlp = require('./server/nlp.cjs');
 const growth = require('./server/growth-engine.cjs');
+const crisisPredictor = require('./server/crisis-predictor.cjs');
 
 // Init AI and NLP
 nlp.initNLP();
@@ -74,7 +75,7 @@ function authMiddleware(req, res, next) {
 // ═══════════════════════════════════════════════════
 
 app.post('/api/chat', async (req, res) => {
-    const { message, sessionId } = req.body;
+    const { message, sessionId, personalityMode, language } = req.body;
     if (!message) return res.status(400).json({ error: 'Message required' });
 
     try {
@@ -86,9 +87,13 @@ app.post('/api/chat', async (req, res) => {
             // 2. Update Pet Stats
             const updatedStats = await growth.updatePetStats(sid, message, emotionData.dominantEmotion === 'joy' ? 'positive' : 'neutral');
 
-            // 3. Get AI Response with stats
-            const result = await gemini.chat(sid, message, { ...emotionData, stats: updatedStats });
+            // 3. Get AI Response with stats, personality, and language
+            const result = await gemini.chat(sid, message, { ...emotionData, stats: updatedStats }, {
+                personalityMode: personalityMode || 'gentle',
+                language: language || 'en'
+            });
 
+            // 4. Auto-log mood from chat interaction
             res.json({
                 response: result.response,
                 source: result.source,
@@ -442,6 +447,344 @@ app.get('/api/analytics/summary', authMiddleware, (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════
+// MOOD TRACKING (Personal Dashboard)
+// ═══════════════════════════════════════════════════
+
+app.post('/api/mood/log', (req, res) => {
+    const { userId, mood, intensity, notes, triggers, source } = req.body;
+    if (!userId || !mood) return res.status(400).json({ error: 'userId and mood required' });
+
+    db.prepare(
+        'INSERT INTO user_mood_entries (user_id, mood, intensity, notes, triggers, source) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(userId, mood, intensity || 0.5, notes || '', triggers || '', source || 'manual');
+
+    // Also log activity
+    db.prepare(
+        'INSERT INTO user_activity_logs (user_id, activity_type, metadata) VALUES (?, ?, ?)'
+    ).run(userId, 'mood_log', JSON.stringify({ mood, intensity }));
+
+    res.json({ ok: true });
+});
+
+app.get('/api/mood/history/:userId', (req, res) => {
+    const days = parseInt(req.query.days) || 30;
+    const entries = db.prepare(
+        `SELECT * FROM user_mood_entries WHERE user_id = ? AND created_at >= datetime('now', '-${days} days') ORDER BY created_at DESC`
+    ).all(req.params.userId);
+    res.json(entries);
+});
+
+app.get('/api/mood/trends/:userId', (req, res) => {
+    const days = parseInt(req.query.days) || 30;
+
+    // Daily mood averages
+    const dailyTrends = db.prepare(`
+        SELECT DATE(created_at) as date, mood, 
+               ROUND(AVG(intensity), 2) as avg_intensity,
+               COUNT(*) as count
+        FROM user_mood_entries 
+        WHERE user_id = ? AND created_at >= datetime('now', '-${days} days')
+        GROUP BY DATE(created_at), mood
+        ORDER BY date ASC
+    `).all(req.params.userId);
+
+    // Day-of-week patterns (trigger detection)
+    const dayOfWeekPattern = db.prepare(`
+        SELECT CASE CAST(strftime('%w', created_at) AS INTEGER)
+            WHEN 0 THEN 'Sunday' WHEN 1 THEN 'Monday' WHEN 2 THEN 'Tuesday'
+            WHEN 3 THEN 'Wednesday' WHEN 4 THEN 'Thursday' WHEN 5 THEN 'Friday'
+            WHEN 6 THEN 'Saturday' END as day_name,
+            mood, ROUND(AVG(intensity), 2) as avg_intensity, COUNT(*) as count
+        FROM user_mood_entries 
+        WHERE user_id = ? AND created_at >= datetime('now', '-${days} days')
+        GROUP BY day_name, mood
+        ORDER BY CAST(strftime('%w', created_at) AS INTEGER)
+    `).all(req.params.userId);
+
+    // Hour-of-day patterns
+    const hourPattern = db.prepare(`
+        SELECT CAST(strftime('%H', created_at) AS INTEGER) as hour,
+               mood, ROUND(AVG(intensity), 2) as avg_intensity, COUNT(*) as count
+        FROM user_mood_entries 
+        WHERE user_id = ? AND created_at >= datetime('now', '-${days} days')
+        GROUP BY hour, mood
+        ORDER BY hour ASC
+    `).all(req.params.userId);
+
+    // Mood distribution
+    const distribution = db.prepare(`
+        SELECT mood, COUNT(*) as count, ROUND(AVG(intensity), 2) as avg_intensity
+        FROM user_mood_entries 
+        WHERE user_id = ? AND created_at >= datetime('now', '-${days} days')
+        GROUP BY mood ORDER BY count DESC
+    `).all(req.params.userId);
+
+    res.json({ dailyTrends, dayOfWeekPattern, hourPattern, distribution });
+});
+
+app.get('/api/mood/insights/:userId', (req, res) => {
+    const entries = db.prepare(
+        `SELECT * FROM user_mood_entries WHERE user_id = ? AND created_at >= datetime('now', '-30 days') ORDER BY created_at ASC`
+    ).all(req.params.userId);
+
+    if (entries.length < 3) {
+        return res.json({ insights: [], message: 'Keep logging your mood — insights will appear after a few entries!' });
+    }
+
+    const insights = [];
+
+    // Day-of-week trigger detection
+    const dayMoods = {};
+    entries.forEach(e => {
+        const day = new Date(e.created_at).toLocaleDateString('en-US', { weekday: 'long' });
+        if (!dayMoods[day]) dayMoods[day] = [];
+        dayMoods[day].push({ mood: e.mood, intensity: e.intensity });
+    });
+
+    for (const [day, moods] of Object.entries(dayMoods)) {
+        const negMoods = moods.filter(m => ['stress', 'anxiety', 'depression', 'sadness', 'anger', 'loneliness'].includes(m.mood));
+        if (negMoods.length > moods.length * 0.6 && moods.length >= 2) {
+            const avgIntensity = negMoods.reduce((s, m) => s + m.intensity, 0) / negMoods.length;
+            insights.push({
+                type: 'trigger',
+                icon: '📅',
+                title: `${day} Pattern Detected`,
+                description: `You tend to feel worse on ${day}s (${Math.round(avgIntensity * 100)}% avg intensity). Consider planning a calming activity for ${day} evenings.`,
+                severity: avgIntensity > 0.7 ? 'high' : 'moderate'
+            });
+        }
+    }
+
+    // Mood streak detection
+    const recentMoods = entries.slice(-5).map(e => e.mood);
+    const negativeStreak = recentMoods.filter(m => ['stress', 'anxiety', 'depression', 'sadness'].includes(m));
+    if (negativeStreak.length >= 4) {
+        insights.push({
+            type: 'pattern',
+            icon: '⚠️',
+            title: 'Extended Low Mood Period',
+            description: 'You\'ve been feeling down for several days. This is a signal to reach out — consider talking to a counselor or trusted friend.',
+            severity: 'high'
+        });
+    }
+
+    // Improvement detection
+    const firstHalf = entries.slice(0, Math.floor(entries.length / 2));
+    const secondHalf = entries.slice(Math.floor(entries.length / 2));
+    const firstAvg = firstHalf.reduce((s, e) => s + e.intensity, 0) / (firstHalf.length || 1);
+    const secondAvg = secondHalf.reduce((s, e) => s + e.intensity, 0) / (secondHalf.length || 1);
+
+    if (secondAvg < firstAvg * 0.8) {
+        insights.push({
+            type: 'positive',
+            icon: '🌟',
+            title: 'Your Mood is Improving!',
+            description: 'Your recent emotional intensity has decreased compared to earlier. Keep doing what\'s working for you!',
+            severity: 'positive'
+        });
+    }
+
+    // Most common mood
+    const moodCounts = {};
+    entries.forEach(e => { moodCounts[e.mood] = (moodCounts[e.mood] || 0) + 1; });
+    const topMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0];
+    if (topMood) {
+        const percentage = Math.round((topMood[1] / entries.length) * 100);
+        insights.push({
+            type: 'info',
+            icon: '📊',
+            title: `Most Common Mood: ${topMood[0]}`,
+            description: `${percentage}% of your entries are "${topMood[0]}". Understanding your baseline helps you notice changes.`,
+            severity: 'info'
+        });
+    }
+
+    res.json({ insights, totalEntries: entries.length });
+});
+
+// ═══════════════════════════════════════════════════
+// USER PREFERENCES
+// ═══════════════════════════════════════════════════
+
+app.get('/api/preferences/:userId', (req, res) => {
+    let prefs = db.prepare('SELECT * FROM user_preferences WHERE user_id = ?').get(req.params.userId);
+    if (!prefs) {
+        db.prepare('INSERT INTO user_preferences (user_id) VALUES (?)').run(req.params.userId);
+        prefs = db.prepare('SELECT * FROM user_preferences WHERE user_id = ?').get(req.params.userId);
+    }
+    res.json(prefs);
+});
+
+app.put('/api/preferences/:userId', (req, res) => {
+    const { personalityMode, language, cameraEnabled, voiceEnabled } = req.body;
+
+    // Ensure row exists
+    const existing = db.prepare('SELECT user_id FROM user_preferences WHERE user_id = ?').get(req.params.userId);
+    if (!existing) {
+        db.prepare('INSERT INTO user_preferences (user_id) VALUES (?)').run(req.params.userId);
+    }
+
+    if (personalityMode) {
+        db.prepare('UPDATE user_preferences SET personality_mode = ? WHERE user_id = ?')
+            .run(personalityMode, req.params.userId);
+    }
+    if (language) {
+        db.prepare('UPDATE user_preferences SET language = ? WHERE user_id = ?')
+            .run(language, req.params.userId);
+    }
+    if (cameraEnabled !== undefined) {
+        db.prepare('UPDATE user_preferences SET camera_enabled = ? WHERE user_id = ?')
+            .run(cameraEnabled ? 1 : 0, req.params.userId);
+    }
+    if (voiceEnabled !== undefined) {
+        db.prepare('UPDATE user_preferences SET voice_enabled = ? WHERE user_id = ?')
+            .run(voiceEnabled ? 1 : 0, req.params.userId);
+    }
+
+    if (req.body.liteMode !== undefined) {
+        db.prepare('UPDATE user_preferences SET lite_mode = ? WHERE user_id = ?')
+            .run(req.body.liteMode ? 1 : 0, req.params.userId);
+    }
+
+    db.prepare('UPDATE user_preferences SET updated_at = CURRENT_TIMESTAMP WHERE user_id = ?')
+        .run(req.params.userId);
+
+    const prefs = db.prepare('SELECT * FROM user_preferences WHERE user_id = ?').get(req.params.userId);
+    res.json(prefs);
+});
+
+// ═══════════════════════════════════════════════════
+// CRISIS PREDICTION SYSTEM
+// ═══════════════════════════════════════════════════
+
+app.get('/api/crisis/predict/:userId', (req, res) => {
+    const userId = req.params.userId;
+
+    const moodEntries = db.prepare(
+        "SELECT * FROM user_mood_entries WHERE user_id = ? AND created_at >= datetime('now', '-14 days') ORDER BY created_at ASC"
+    ).all(userId);
+
+    const emotionLogs = db.prepare(
+        "SELECT * FROM emotion_logs WHERE session_id = ? AND created_at >= datetime('now', '-14 days') ORDER BY created_at ASC"
+    ).all(userId);
+
+    const activityLogs = db.prepare(
+        "SELECT * FROM user_activity_logs WHERE user_id = ? AND created_at >= datetime('now', '-14 days') ORDER BY created_at ASC"
+    ).all(userId);
+
+    const prediction = crisisPredictor.predictCrisisRisk(moodEntries, emotionLogs, activityLogs);
+
+    // If risk is high/critical and we haven't alerted recently, create alert
+    if (['high', 'critical'].includes(prediction.riskLevel) && crisisPredictor.shouldSendAlert(db, userId)) {
+        db.prepare(
+            'INSERT INTO crisis_alerts (session_id, student_alias, trigger_message, detected_emotion, severity) VALUES (?, ?, ?, ?, ?)'
+        ).run(userId, 'Student', 'Predictive alert: behavioral pattern analysis', prediction.riskLevel, prediction.riskLevel);
+    }
+
+    res.json(prediction);
+});
+
+// ═══════════════════════════════════════════════════
+// GAMIFIED HEALING JOURNEY
+// ═══════════════════════════════════════════════════
+
+app.get('/api/achievements/:userId', (req, res) => {
+    let achievements = db.prepare('SELECT * FROM user_achievements WHERE user_id = ?').all(req.params.userId);
+
+    // Auto-check for new achievements
+    const moodCount = db.prepare('SELECT COUNT(*) as c FROM user_mood_entries WHERE user_id = ?').get(req.params.userId)?.c || 0;
+    const chatCount = db.prepare('SELECT COUNT(*) as c FROM emotion_logs WHERE session_id = ?').get(req.params.userId)?.c || 0;
+    const existingTypes = achievements.map(a => a.achievement_type);
+
+    const newAchievements = [];
+    if (moodCount >= 1 && !existingTypes.includes('first_mood')) {
+        newAchievements.push({ type: 'first_mood', title: 'First Step 🌱', desc: 'Logged your first mood entry!', icon: '🌱', xp: 10 });
+    }
+    if (moodCount >= 7 && !existingTypes.includes('week_streak')) {
+        newAchievements.push({ type: 'week_streak', title: 'Week Warrior 🔥', desc: 'Logged mood for 7 days!', icon: '🔥', xp: 50 });
+    }
+    if (chatCount >= 10 && !existingTypes.includes('chat_explorer')) {
+        newAchievements.push({ type: 'chat_explorer', title: 'Chat Explorer 💬', desc: 'Had 10 conversations with EmoSense!', icon: '💬', xp: 30 });
+    }
+    if (chatCount >= 50 && !existingTypes.includes('deep_talker')) {
+        newAchievements.push({ type: 'deep_talker', title: 'Deep Talker 🗣️', desc: '50 conversations — building a real bond!', icon: '🗣️', xp: 100 });
+    }
+    if (moodCount >= 30 && !existingTypes.includes('month_champion')) {
+        newAchievements.push({ type: 'month_champion', title: 'Monthly Champion 🏆', desc: 'A full month of mood tracking!', icon: '🏆', xp: 200 });
+    }
+
+    const insert = db.prepare('INSERT INTO user_achievements (user_id, achievement_type, title, description, icon, xp_earned) VALUES (?, ?, ?, ?, ?, ?)');
+    newAchievements.forEach(a => {
+        insert.run(req.params.userId, a.type, a.title, a.desc, a.icon, a.xp);
+    });
+
+    // Refresh
+    achievements = db.prepare('SELECT * FROM user_achievements WHERE user_id = ? ORDER BY earned_at DESC').all(req.params.userId);
+    const totalXp = achievements.reduce((s, a) => s + (a.xp_earned || 0), 0);
+    const level = Math.floor(totalXp / 100) + 1;
+
+    res.json({ achievements, totalXp, level, newAchievements: newAchievements.map(a => a.title) });
+});
+
+// ═══════════════════════════════════════════════════
+// ANONYMOUS VOICE ROOMS
+// ═══════════════════════════════════════════════════
+
+const voiceRooms = new Map();
+const ROOM_TOPICS = [
+    { id: 'anxiety', name: 'Anxiety Support', icon: '😟', description: 'A safe space to discuss anxiety and share coping strategies' },
+    { id: 'exams', name: 'Exam Stress', icon: '📚', description: 'Support for academic pressure and exam anxiety' },
+    { id: 'relationships', name: 'Relationships', icon: '💔', description: 'Breakups, friendships, and relationship struggles' },
+    { id: 'loneliness', name: 'Loneliness', icon: '🥺', description: 'You\'re not alone — connect with others who understand' },
+    { id: 'general', name: 'General Support', icon: '💚', description: 'Open discussion for any topic — just talk or listen' },
+    { id: 'motivation', name: 'Motivation Corner', icon: '💪', description: 'Uplift each other with encouragement and positivity' }
+];
+
+app.get('/api/voice-rooms', (req, res) => {
+    const rooms = ROOM_TOPICS.map(topic => ({
+        ...topic,
+        participants: voiceRooms.get(topic.id)?.size || 0,
+        isActive: (voiceRooms.get(topic.id)?.size || 0) > 0
+    }));
+    res.json(rooms);
+});
+
+// ═══════════════════════════════════════════════════
+// AI THERAPIST MATCHING
+// ═══════════════════════════════════════════════════
+
+app.post('/api/therapist-match', (req, res) => {
+    const { issues, preferences } = req.body;
+    if (!issues || !Array.isArray(issues)) return res.status(400).json({ error: 'Issues array required' });
+
+    const counselors = db.prepare(
+        'SELECT id, name, gender, photo, specialization, bio, is_online FROM counselors'
+    ).all();
+
+    // Score each counselor based on issue overlap with their specialization
+    const scored = counselors.map(c => {
+        let score = 0;
+        const spec = (c.specialization + ' ' + c.bio).toLowerCase();
+
+        issues.forEach(issue => {
+            const keywords = issue.toLowerCase().split(/\s+/);
+            keywords.forEach(kw => {
+                if (spec.includes(kw)) score += 10;
+            });
+        });
+
+        // Preference bonuses
+        if (preferences?.gender && c.gender === preferences.gender) score += 5;
+        if (c.is_online) score += 15;
+
+        return { ...c, matchScore: score };
+    });
+
+    scored.sort((a, b) => b.matchScore - a.matchScore);
+    res.json({ matches: scored, totalCounselors: counselors.length });
+});
+
+// ═══════════════════════════════════════════════════
 // SOCKET.IO — REAL-TIME CHAT
 // ═══════════════════════════════════════════════════
 
@@ -507,8 +850,59 @@ io.on('connection', (socket) => {
         io.to(sessionId).emit('session-ended', { sessionId });
     });
 
+    // ── Voice Room Handlers ──
+    socket.on('join-voice-room', (data) => {
+        const { roomId, anonymousId } = data;
+        socket.join(`voice-${roomId}`);
+        if (!voiceRooms.has(roomId)) voiceRooms.set(roomId, new Set());
+        voiceRooms.get(roomId).add(socket.id);
+        io.to(`voice-${roomId}`).emit('room-update', {
+            roomId,
+            participants: voiceRooms.get(roomId).size,
+            event: 'join',
+            anonymousId
+        });
+    });
+
+    socket.on('leave-voice-room', (data) => {
+        const { roomId } = data;
+        socket.leave(`voice-${roomId}`);
+        if (voiceRooms.has(roomId)) {
+            voiceRooms.get(roomId).delete(socket.id);
+            if (voiceRooms.get(roomId).size === 0) voiceRooms.delete(roomId);
+        }
+        io.to(`voice-${roomId}`).emit('room-update', {
+            roomId,
+            participants: voiceRooms.get(roomId)?.size || 0,
+            event: 'leave'
+        });
+    });
+
+    socket.on('room-message', (data) => {
+        const { roomId, message, anonymousId } = data;
+        io.to(`voice-${roomId}`).emit('room-message', {
+            roomId,
+            message,
+            anonymousId,
+            timestamp: new Date().toISOString()
+        });
+    });
+
     // Disconnect
     socket.on('disconnect', () => {
+        // Clean up voice rooms
+        for (const [roomId, members] of voiceRooms) {
+            if (members.has(socket.id)) {
+                members.delete(socket.id);
+                if (members.size === 0) voiceRooms.delete(roomId);
+                io.to(`voice-${roomId}`).emit('room-update', {
+                    roomId,
+                    participants: members.size,
+                    event: 'leave'
+                });
+            }
+        }
+
         // Find and remove counselor
         for (const [counselorId, socketId] of activeCounselors) {
             if (socketId === socket.id) {

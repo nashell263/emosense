@@ -132,6 +132,47 @@ function initTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (acknowledged_by) REFERENCES counselors(id)
     );
+
+    CREATE TABLE IF NOT EXISTS user_mood_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      mood TEXT NOT NULL,
+      intensity REAL DEFAULT 0.5,
+      notes TEXT DEFAULT '',
+      triggers TEXT DEFAULT '',
+      source TEXT DEFAULT 'manual' CHECK(source IN ('manual','auto','chat')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS user_activity_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      activity_type TEXT NOT NULL,
+      duration INTEGER DEFAULT 0,
+      metadata TEXT DEFAULT '{}',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS user_preferences (
+      user_id TEXT PRIMARY KEY,
+      personality_mode TEXT DEFAULT 'gentle' CHECK(personality_mode IN ('gentle','motivational','logical')),
+      language TEXT DEFAULT 'en',
+      camera_enabled INTEGER DEFAULT 0,
+      voice_enabled INTEGER DEFAULT 0,
+      lite_mode INTEGER DEFAULT 0,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS user_achievements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      achievement_type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      icon TEXT DEFAULT '',
+      xp_earned INTEGER DEFAULT 0,
+      earned_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 }
 

@@ -557,3 +557,118 @@ export function getSentimentLabel(sentiment) {
     };
     return labels[sentiment] || 'Neutral';
 }
+
+/* ──────────────────────── Multi-Modal Fusion ──────────────────────── */
+
+/**
+ * Fuse text, voice, and facial expression analysis into a single composite result.
+ * Weights: Text = 0.5, Voice = 0.3, Face = 0.2 (when all available)
+ * Falls back gracefully when signals are missing.
+ * 
+ * @param {object} textAnalysis - Result from analyzeEmotion()
+ * @param {object|null} voiceSignals - Result from voice-analyzer.js
+ * @param {object|null} faceResult - Result from face-analyzer.js
+ * @returns {object} Fused emotion analysis
+ */
+export function fuseMultiModal(textAnalysis, voiceSignals = null, faceResult = null) {
+    if (!textAnalysis) return createEmptyResult();
+    if (!voiceSignals && !faceResult) return textAnalysis;
+
+    // Determine weights based on available signals
+    let textWeight, voiceWeight, faceWeight;
+    if (voiceSignals && faceResult) {
+        textWeight = 0.50; voiceWeight = 0.30; faceWeight = 0.20;
+    } else if (voiceSignals) {
+        textWeight = 0.60; voiceWeight = 0.40; faceWeight = 0;
+    } else {
+        textWeight = 0.65; voiceWeight = 0; faceWeight = 0.35;
+    }
+
+    // Build emotion score map from all signals
+    const fusedScores = {};
+
+    // Text emotions
+    if (textAnalysis.emotions) {
+        for (const emotion of textAnalysis.emotions) {
+            fusedScores[emotion.type] = (fusedScores[emotion.type] || 0) + (emotion.confidence * textWeight);
+        }
+    }
+
+    // Voice tone signals
+    if (voiceSignals && voiceSignals.voiceToneSignals) {
+        const voiceMap = {
+            stress: 'stress',
+            anxiety: 'anxiety',
+            depression: 'depression',
+            calm: 'hopeful',
+            agitation: 'anger'
+        };
+        for (const [signal, score] of Object.entries(voiceSignals.voiceToneSignals)) {
+            const mapped = voiceMap[signal] || signal;
+            fusedScores[mapped] = (fusedScores[mapped] || 0) + (score * 100 * voiceWeight);
+        }
+    }
+
+    // Face expression signals
+    if (faceResult && faceResult.scores) {
+        for (const [emotion, score] of Object.entries(faceResult.scores)) {
+            fusedScores[emotion] = (fusedScores[emotion] || 0) + (score * 100 * faceWeight);
+        }
+    }
+
+    // Sort fused emotions
+    const sortedFused = Object.entries(fusedScores)
+        .map(([type, score]) => ({
+            type,
+            confidence: Math.min(Math.round(score), 100),
+            score
+        }))
+        .filter(e => e.confidence > 5)
+        .sort((a, b) => b.score - a.score);
+
+    // Determine fused dominant emotion
+    let fusedDominant = textAnalysis.dominantEmotion;
+    if (sortedFused.length > 0 && sortedFused[0].confidence > 20) {
+        fusedDominant = sortedFused[0].type;
+    }
+
+    // Crisis always takes priority
+    if (textAnalysis.isCrisis) {
+        fusedDominant = 'crisis';
+    }
+
+    // Compute fused confidence
+    const fusedConfidence = sortedFused.length > 0
+        ? sortedFused[0].confidence
+        : textAnalysis.confidence;
+
+    // Build comprehensive intensity level
+    const intensity = fusedConfidence > 75 ? 'high'
+        : fusedConfidence > 45 ? 'moderate'
+            : fusedConfidence > 20 ? 'low'
+                : 'minimal';
+
+    return {
+        ...textAnalysis,
+        dominantEmotion: fusedDominant,
+        confidence: fusedConfidence,
+        intensity,
+        fusedEmotions: sortedFused,
+        signals: {
+            text: true,
+            voice: !!voiceSignals,
+            face: !!faceResult
+        },
+        voiceData: voiceSignals ? {
+            speechRate: voiceSignals.speechRate,
+            pauseCount: voiceSignals.pauseCount,
+            duration: voiceSignals.durationSeconds
+        } : null,
+        faceData: faceResult ? {
+            dominant: faceResult.dominant,
+            confidence: faceResult.confidence,
+            rawExpression: faceResult.rawExpression
+        } : null,
+        fusedAt: Date.now()
+    };
+}
