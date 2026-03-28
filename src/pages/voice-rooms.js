@@ -128,7 +128,7 @@ function openRoom(room) {
     socket.emit('voice-room-leave', { roomId: room.id, alias });
     socket.disconnect();
     modal.style.display = 'none';
-    renderVoiceRooms(document.querySelector('#app'));
+    renderVoiceRooms(document.getElementById('page-content'));
   };
 
   function appendSystemMessage(container, text) {

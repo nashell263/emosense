@@ -15,6 +15,9 @@ import { renderCounselors } from './pages/counselors.js';
 import { renderDashboard } from './pages/dashboard.js';
 import { renderAnalytics } from './pages/analytics.js';
 import { renderStudentHub } from './pages/student-hub.js';
+import { renderVoiceRooms } from './pages/voice-rooms.js';
+import { renderAchievements } from './pages/achievements.js';
+import { renderTherapistMatch } from './pages/therapist-match.js';
 import { renderEmergencySupport } from './pages/emergency-support.js';
 
 // Register routes
@@ -30,6 +33,17 @@ registerRoute('voice-rooms', renderVoiceRooms);
 registerRoute('achievements', renderAchievements);
 registerRoute('therapist-match', renderTherapistMatch);
 registerRoute('emergency', renderEmergencySupport);
+
+// Register Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/src/sw.js').catch(err => console.log('SW reg failed:', err));
+  });
+}
+
+// Initialize navigation
+const navContainer = document.getElementById('main-nav');
+renderNav(navContainer);
 
 // Update nav on hash change
 window.addEventListener('hashchange', () => {
