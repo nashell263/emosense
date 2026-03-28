@@ -912,6 +912,75 @@ io.on('connection', (socket) => {
                 break;
             }
         }
+
+        // Voice Room Cleanup — NEW
+        for (const [roomId, members] of voiceRooms) {
+            if (members.has(socket.id)) {
+                members.delete(socket.id);
+                io.to(`room-${roomId}`).emit('room-update', {
+                    roomId,
+                    participants: members.size
+                });
+            }
+        }
+    });
+
+    // ──── Voice Room Handlers ────
+    socket.on('voice-room-join', (data) => {
+        const { roomId, alias } = data;
+        socket.join(`room-${roomId}`);
+
+        if (!voiceRooms.has(roomId)) {
+            voiceRooms.set(roomId, new Set());
+        }
+        voiceRooms.get(roomId).add(socket.id);
+
+        const count = voiceRooms.get(roomId).size;
+
+        // Notify room
+        io.to(`room-${roomId}`).emit('room-update', {
+            roomId,
+            participants: count,
+            event: 'join',
+            user: alias
+        });
+
+        console.log(`User joined room ${roomId}. Total: ${count}`);
+    });
+
+    socket.on('voice-room-leave', (data) => {
+        const { roomId, alias } = data;
+        socket.leave(`room-${roomId}`);
+
+        if (voiceRooms.has(roomId)) {
+            voiceRooms.get(roomId).delete(socket.id);
+            const count = voiceRooms.get(roomId).size;
+
+            io.to(`room-${roomId}`).emit('room-update', {
+                roomId,
+                participants: count,
+                event: 'leave',
+                user: alias
+            });
+        }
+    });
+
+    socket.on('voice-room-msg', (data) => {
+        const { roomId, alias, text } = data;
+        io.to(`room-${roomId}`).emit('room-message', {
+            alias,
+            text,
+            timestamp: Date.now()
+        });
+    });
+
+    socket.on('voice-room-audio', (data) => {
+        // Simple broadcast of audio data to others in room
+        const { roomId, audio } = data;
+        socket.to(`room-${roomId}`).emit('room-audio-stream', {
+            sender: socket.id,
+            audio
+        });
     });
 });
 

@@ -6,7 +6,7 @@
 import { apiPost } from '../api.js';
 
 export function renderTherapistMatch(container) {
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="matching-page">
       <div class="page-header">
         <h1>Find Your Perfect Counselor</h1>
@@ -24,7 +24,7 @@ export function renderTherapistMatch(container) {
             <label class="option-check"><input type="checkbox" name="issue" value="loneliness"> Loneliness</label>
             <label class="option-check"><input type="checkbox" name="issue" value="career"> Career Anxiety</label>
           </div>
-          <button class="next-btn" onclick="document.getElementById('step-1').style.display='none'; document.getElementById('step-2').style.display='block';">Next</button>
+          <button class="next-btn" id="quiz-next-btn">Next</button>
         </div>
 
         <div class="quiz-step" id="step-2" style="display:none;">
@@ -45,21 +45,27 @@ export function renderTherapistMatch(container) {
     </div>
   `;
 
-    document.getElementById('find-match-btn').onclick = async () => {
-        const issues = Array.from(document.querySelectorAll('input[name="issue"]:checked')).map(el => el.value);
-        const gender = document.querySelector('input[name="gender"]:checked').value;
+  // Event Listeners
+  document.getElementById('quiz-next-btn').onclick = () => {
+    document.getElementById('step-1').style.display = 'none';
+    document.getElementById('step-2').style.display = 'block';
+  };
 
-        const res = await apiPost('/api/therapist-match', {
-            issues,
-            preferences: { gender: gender === 'any' ? null : gender }
-        });
+  document.getElementById('find-match-btn').onclick = async () => {
+    const issues = Array.from(document.querySelectorAll('input[name="issue"]:checked')).map(el => el.value);
+    const gender = document.querySelector('input[name="gender"]:checked').value;
 
-        document.getElementById('matching-quiz').style.display = 'none';
-        const resultsContainer = document.getElementById('match-results');
-        const resultsList = document.getElementById('results-list');
-        resultsContainer.style.display = 'block';
+    const res = await apiPost('/api/therapist-match', {
+      issues,
+      preferences: { gender: gender === 'any' ? null : gender }
+    });
 
-        resultsList.innerHTML = res.matches.map(c => `
+    document.getElementById('matching-quiz').style.display = 'none';
+    const resultsContainer = document.getElementById('match-results');
+    const resultsList = document.getElementById('results-list');
+    resultsContainer.style.display = 'block';
+
+    resultsList.innerHTML = res.matches.map(c => `
       <div class="match-card">
         <div class="match-score">${c.matchScore}% Match</div>
         <img src="${c.photo || '/placeholder-user.png'}" class="match-photo" />
@@ -71,5 +77,5 @@ export function renderTherapistMatch(container) {
         </div>
       </div>
     `).join('');
-    };
+  };
 }

@@ -10,7 +10,7 @@ import { analyzeEmotion, getEmotionLabel, getEmotionEmoji, getEmotionColor, getS
 import { isVoiceSupported, startListening, stopListening, setLanguage as setVoiceLang, getListeningState } from '../engine/voice-analyzer.js';
 import { startCamera, stopCamera, isCameraActive, isFaceApiSupported } from '../engine/face-analyzer.js';
 import { getRecommendations, getCrisisResources } from '../engine/recommendations.js';
-import { apiPost } from '../api.js';
+import { apiPost, apiGet } from '../api.js';
 
 let currentEmotion = 'neutral';
 let messageCount = 0;

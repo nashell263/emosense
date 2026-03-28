@@ -140,16 +140,16 @@ function seedData() {
 
     // Seed default counselor
     const insert = db.prepare(`
-      INSERT INTO counselors (name, specialty, experience, bio, image, email, password, is_online)
+      INSERT INTO counselors (name, gender, specialization, bio, photo, email, password, is_online)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     insert.run(
       'Dr. Mercy Chidemo',
+      'female',
       'Trauma & Anxiety',
-      '12 years',
       'Expert in student mental health and academic stress management.',
-      '/assets/counselor1.jpg',
+      '/counselors/counselor-1.png',
       'mercy@msu.ac.zw',
       hashedPassword,
       1
@@ -157,10 +157,10 @@ function seedData() {
 
     insert.run(
       'Tatenda Mukaro',
+      'male',
       'Relationships & Careers',
-      '8 years',
       'Dedicated to helping students navigate life transitions.',
-      '/assets/counselor2.jpg',
+      '/counselors/counselor-2.png',
       'tatenda@msu.ac.zw',
       hashedPassword,
       0

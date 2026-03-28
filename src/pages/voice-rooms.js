@@ -7,9 +7,9 @@ import { apiGet } from '../api.js';
 import { getSocketUrl } from '../api.js';
 
 export async function renderVoiceRooms(container) {
-    const rooms = await apiGet('/api/voice-rooms');
+  const rooms = await apiGet('/api/voice-rooms');
 
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="voice-rooms-page">
       <div class="page-header">
         <h1>Anonymous Safe Spaces</h1>
@@ -72,74 +72,93 @@ export async function renderVoiceRooms(container) {
     </div>
   `;
 
-    // Event Listeners
-    document.querySelectorAll('.join-room-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const roomId = btn.dataset.id;
-            const room = rooms.find(r => r.id === roomId);
-            openRoom(room);
-        });
+  // Event Listeners
+  document.querySelectorAll('.join-room-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const roomId = btn.dataset.id;
+      const room = rooms.find(r => r.id === roomId);
+      openRoom(room);
     });
+  });
 }
 
 function openRoom(room) {
-    const modal = document.getElementById('active-room-modal');
-    const nameEl = document.getElementById('current-room-name');
-    const leaveBtn = document.getElementById('leave-room-btn');
-    const input = document.getElementById('room-input');
-    const sendBtn = document.getElementById('send-room-msg');
-    const messagesContainer = document.getElementById('room-messages');
-    const micBtn = document.getElementById('mic-toggle');
+  const modal = document.getElementById('active-room-modal');
+  const nameEl = document.getElementById('current-room-name');
+  const leaveBtn = document.getElementById('leave-room-btn');
+  const input = document.getElementById('room-input');
+  const sendBtn = document.getElementById('send-room-msg');
+  const messagesContainer = document.getElementById('room-messages');
+  const micBtn = document.getElementById('mic-toggle');
 
-    nameEl.textContent = `${room.icon} ${room.name}`;
-    modal.style.display = 'flex';
+  nameEl.textContent = `${room.icon} ${room.name}`;
+  modal.style.display = 'flex';
 
-    // Socket.io integration would go here
-    // For demonstration, we'll simulate the interaction
+  // ──── Socket Integration — NEW ────
+  const socket = io(getSocketUrl());
+  const alias = 'Anonymous student ' + Math.floor(Math.random() * 999);
 
-    leaveBtn.onclick = () => {
-        modal.style.display = 'none';
-    };
+  socket.emit('voice-room-join', { roomId: room.id, alias });
 
-    sendBtn.onclick = sendMessage;
-    input.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
-
-    function sendMessage() {
-        const text = input.value.trim();
-        if (!text) return;
-
-        appendMessage('You', text);
-        input.value = '';
-
-        // Simulate other anonymous users responding
-        setTimeout(() => {
-            const responses = [
-                "I hear you. You're not alone.",
-                "Thanks for sharing that.",
-                "I've been feeling the same way lately.",
-                "We're here for you."
-            ];
-            const randomMsg = responses[Math.floor(Math.random() * responses.length)];
-            appendMessage('Anonymous', randomMsg);
-        }, 2000);
+  socket.on('room-update', (data) => {
+    // Update participant count in UI
+    const roomCard = document.querySelector(`.room-card[data-id="${data.roomId}"]`);
+    if (roomCard) {
+      const countEl = roomCard.querySelector('.participant-count');
+      if (countEl) countEl.innerHTML = `<span class="pulse-dot"></span> ${data.participants} listening ${data.participants === 1 ? 'now' : ''}`;
     }
 
-    function appendMessage(sender, text) {
-        const msgEl = document.createElement('div');
-        msgEl.className = `room-msg ${sender === 'You' ? 'own' : 'other'}`;
-        msgEl.innerHTML = `
+    if (data.event) {
+      appendSystemMessage(messagesContainer, `${data.user} has ${data.event === 'join' ? 'entered' : 'left'} the room.`);
+    }
+  });
+
+  socket.on('room-message', (data) => {
+    appendMessage(data.alias === alias ? 'You' : 'Anonymous staff', data.text);
+  });
+
+  function sendMessage() {
+    const text = input.value.trim();
+    if (!text) return;
+    socket.emit('voice-room-msg', { roomId: room.id, alias, text });
+    input.value = '';
+  }
+
+  leaveBtn.onclick = () => {
+    socket.emit('voice-room-leave', { roomId: room.id, alias });
+    socket.disconnect();
+    modal.style.display = 'none';
+    renderVoiceRooms(document.querySelector('#app'));
+  };
+
+  function appendSystemMessage(container, text) {
+    const div = document.createElement('div');
+    div.className = 'system-msg';
+    div.style.color = 'var(--text-muted)';
+    div.style.fontSize = '0.75rem';
+    div.style.textAlign = 'center';
+    div.style.margin = '8px 0';
+    div.textContent = text;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function appendMessage(sender, text) {
+    const msgEl = document.createElement('div');
+    msgEl.className = `room-msg ${sender === 'You' ? 'own' : 'other'}`;
+    msgEl.innerHTML = `
       <span class="sender">${sender}</span>
       <span class="text">${text}</span>
     `;
-        messagesContainer.appendChild(msgEl);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
+    messagesContainer.appendChild(msgEl);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
 
-    let isMuted = true;
-    micBtn.onclick = () => {
-        isMuted = !isMuted;
-        micBtn.classList.toggle('muted', isMuted);
-        micBtn.querySelector('.label').textContent = isMuted ? 'Muted' : 'Speaking';
-        micBtn.querySelector('.icon').textContent = isMuted ? '🎤' : '🔊';
-    };
+  let isMuted = true;
+  micBtn.onclick = () => {
+    isMuted = !isMuted;
+    micBtn.classList.toggle('muted', isMuted);
+    micBtn.querySelector('.label').textContent = isMuted ? 'Muted' : 'Speaking';
+    micBtn.querySelector('.icon').textContent = isMuted ? '🎤' : '🔊';
+  };
 }

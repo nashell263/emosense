@@ -14,7 +14,7 @@ const USER_ID = 'session_' + (localStorage.getItem('emosense_user_id') || (() =>
   return id;
 })());
 
-export function renderMyDashboard(container) {
+export function renderStudentHub(container) {
   container.innerHTML = `
     <div class="my-dashboard">
       <div class="dash-header">
