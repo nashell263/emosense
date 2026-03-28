@@ -154,11 +154,95 @@ function openRoom(room) {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
+  let audioStream = null;
   let isMuted = true;
-  micBtn.onclick = () => {
-    isMuted = !isMuted;
-    micBtn.classList.toggle('muted', isMuted);
-    micBtn.querySelector('.label').textContent = isMuted ? 'Muted' : 'Speaking';
-    micBtn.querySelector('.icon').textContent = isMuted ? '🎤' : '🔊';
+  let audioContext = null;
+  let processor = null;
+
+  micBtn.onclick = async () => {
+    if (isMuted) {
+      try {
+        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        isMuted = false;
+        micBtn.classList.remove('muted');
+        micBtn.classList.add('active');
+        micBtn.querySelector('.label').textContent = 'Speaking';
+        micBtn.querySelector('.icon').textContent = '🔊';
+
+        // Set up audio processing
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(audioStream);
+        processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+
+        processor.onaudioprocess = (e) => {
+          if (isMuted) return;
+          const inputData = e.inputBuffer.getChannelData(0);
+          socket.emit('voice-room-audio', {
+            roomId: room.id,
+            audio: inputData.buffer
+          });
+
+          // Local visualization logic
+          const bars = document.querySelectorAll('.visualizer-bar');
+          bars.forEach(bar => {
+            const height = 10 + (Math.random() * 30);
+            bar.style.height = `${height}px`;
+            bar.style.background = 'var(--primary-500)';
+          });
+        };
+      } catch (err) {
+        alert('Could not access microphone: ' + err.message);
+      }
+    } else {
+      isMuted = true;
+      micBtn.classList.add('muted');
+      micBtn.classList.remove('active');
+      micBtn.querySelector('.label').textContent = 'Muted';
+      micBtn.querySelector('.icon').textContent = '🎤';
+
+      if (audioStream) {
+        audioStream.getTracks().forEach(t => t.stop());
+        audioStream = null;
+      }
+      if (processor) processor.disconnect();
+      if (audioContext) audioContext.close();
+
+      // Reset visualizer
+      document.querySelectorAll('.visualizer-bar').forEach(bar => {
+        bar.style.height = '4px';
+        bar.style.background = 'var(--slate-200)';
+      });
+    }
   };
+
+  // Handle incoming audio
+  socket.on('room-audio-stream', (data) => {
+    if (!window._audioContext) {
+      window._audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    const floatData = new Float32Array(data.audio);
+    const buffer = window._audioContext.createBuffer(1, floatData.length, window._audioContext.sampleRate);
+    buffer.copyToChannel(floatData, 0);
+
+    const source = window._audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(window._audioContext.destination);
+    source.start();
+
+    // Remote visualization
+    const bars = document.querySelectorAll('.visualizer-bar');
+    bars.forEach((bar, i) => {
+      const height = 15 + (Math.random() * 35);
+      bar.style.height = `${height}px`;
+      bar.style.background = 'var(--accent-500)';
+    });
+  });
+
+  // Handle Send Button
+  sendBtn.onclick = sendMessage;
+  input.onkeydown = (e) => { if (e.key === 'Enter') sendMessage(); };
 }

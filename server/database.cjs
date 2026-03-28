@@ -11,7 +11,7 @@ const fs = require('fs');
 const DB_DIR = fs.existsSync('/opt/render/project/src/data')
   ? '/opt/render/project/src/data'
   : path.join(__dirname, '..');
-const DB_PATH = path.join(DB_DIR, 'emosense.db');
+const DB_PATH = path.join(DB_DIR, 'emosense_v2.db');
 
 let db;
 
@@ -29,29 +29,30 @@ function getDb() {
 function initTables() {
   // Counselors table
   db.exec(`
-    CREATE TABLE IF NOT EXISTS counselors (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      specialty TEXT,
-      experience TEXT,
-      bio TEXT,
-      image TEXT,
-      is_online INTEGER DEFAULT 0,
-      email TEXT UNIQUE,
-      password TEXT
-    )
-  `);
+      CREATE TABLE IF NOT EXISTS counselors (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        gender TEXT,
+        specialization TEXT,
+        bio TEXT,
+        photo TEXT,
+        is_online INTEGER DEFAULT 0,
+        email TEXT UNIQUE,
+        password TEXT
+      )
+    `);
 
-  // Schedules table
   db.exec(`
-    CREATE TABLE IF NOT EXISTS schedules (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      counselor_id INTEGER,
-      day TEXT,
-      time_slots TEXT,
-      FOREIGN KEY (counselor_id) REFERENCES counselors (id)
-    )
-  `);
+      CREATE TABLE IF NOT EXISTS schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        counselor_id INTEGER,
+        day_of_week TEXT,
+        start_time TEXT,
+        end_time TEXT,
+        is_available INTEGER DEFAULT 1,
+        FOREIGN KEY (counselor_id) REFERENCES counselors (id)
+      )
+    `);
 
   // Chat Sessions
   db.exec(`
@@ -124,11 +125,54 @@ function initTables() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS feedback (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      counselor_id INTEGER,
+      session_type TEXT, -- 'ai' or 'counselor'
+      session_id TEXT,
       rating INTEGER,
+      helpful INTEGER,
       comment TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Emotion Logs
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS emotion_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT,
+      emotion TEXT,
+      confidence REAL,
+      sentiment TEXT,
+      sentiment_score REAL,
+      is_crisis INTEGER DEFAULT 0,
+      message_preview TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Crisis Alerts
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS crisis_alerts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT,
+      student_alias TEXT,
+      trigger_message TEXT,
+      detected_emotion TEXT,
+      severity TEXT,
+      status TEXT DEFAULT 'new',
+      acknowledged_by INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (counselor_id) REFERENCES counselors (id)
+      FOREIGN KEY (acknowledged_by) REFERENCES counselors (id)
+    )
+  `);
+
+  // User Activity Logs
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_activity_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      activity_type TEXT,
+      metadata TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 }
@@ -168,9 +212,10 @@ function seedData() {
 
     // Seed sample schedules
     const counselor = db.prepare('SELECT id FROM counselors LIMIT 1').get();
-    const insertSched = db.prepare('INSERT INTO schedules (counselor_id, day, time_slots) VALUES (?, ?, ?)');
-    insertSched.run(counselor.id, 'Monday', JSON.stringify(['09:00', '10:00', '14:00']));
-    insertSched.run(counselor.id, 'Wednesday', JSON.stringify(['11:00', '13:00', '15:00']));
+    const insertSched = db.prepare('INSERT INTO schedules (counselor_id, day_of_week, start_time, end_time, is_available) VALUES (?, ?, ?, ?, ?)');
+    insertSched.run(counselor.id, 'Monday', '09:00', '14:00', 1);
+    insertSched.run(counselor.id, 'Wednesday', '11:00', '15:00', 1);
+    insertSched.run(counselor.id, 'Friday', '10:00', '16:00', 1);
   }
 }
 

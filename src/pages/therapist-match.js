@@ -46,36 +46,58 @@ export function renderTherapistMatch(container) {
   `;
 
   // Event Listeners
-  document.getElementById('quiz-next-btn').onclick = () => {
-    document.getElementById('step-1').style.display = 'none';
-    document.getElementById('step-2').style.display = 'block';
-  };
-
-  document.getElementById('find-match-btn').onclick = async () => {
-    const issues = Array.from(document.querySelectorAll('input[name="issue"]:checked')).map(el => el.value);
-    const gender = document.querySelector('input[name="gender"]:checked').value;
-
-    const res = await apiPost('/api/therapist-match', {
-      issues,
-      preferences: { gender: gender === 'any' ? null : gender }
+  const nextBtn = document.getElementById('quiz-next-btn');
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      document.getElementById('step-1').style.display = 'none';
+      document.getElementById('step-2').style.display = 'block';
     });
+  }
 
-    document.getElementById('matching-quiz').style.display = 'none';
-    const resultsContainer = document.getElementById('match-results');
-    const resultsList = document.getElementById('results-list');
-    resultsContainer.style.display = 'block';
+  const findMatchBtn = document.getElementById('find-match-btn');
+  if (findMatchBtn) {
+    findMatchBtn.addEventListener('click', async () => {
+      const issues = Array.from(document.querySelectorAll('input[name="issue"]:checked')).map(el => el.value);
+      const gender = document.querySelector('input[name="gender"]:checked').value;
 
-    resultsList.innerHTML = res.matches.map(c => `
-      <div class="match-card">
-        <div class="match-score">${c.matchScore}% Match</div>
-        <img src="${c.photo || '/placeholder-user.png'}" class="match-photo" />
-        <div class="match-info">
-          <h3>${c.name}</h3>
-          <p class="specialty">${c.specialization}</p>
-          <p class="match-bio">${c.bio.substring(0, 100)}...</p>
-          <button class="chat-match-btn" onclick="window.location.hash='#chat'">Start Chat</button>
-        </div>
-      </div>
-    `).join('');
-  };
+      try {
+        const res = await apiPost('/api/therapist-match', {
+          issues,
+          preferences: { gender: gender === 'any' ? null : gender }
+        });
+
+        document.getElementById('matching-quiz').style.display = 'none';
+        const resultsContainer = document.getElementById('match-results');
+        const resultsList = document.getElementById('results-list');
+        resultsContainer.style.display = 'block';
+
+        if (!res.matches || res.matches.length === 0) {
+          resultsList.innerHTML = '<div class="empty-state">No perfect matches found at this moment. You can still chat with any of our online counselors!</div>';
+        } else {
+          resultsList.innerHTML = res.matches.map(c => `
+            <div class="match-card">
+              <div class="match-score">${c.matchScore}% Match</div>
+              <img src="${c.photo || '/placeholder-user.png'}" class="match-photo" />
+              <div class="match-info">
+                <h3>${c.name}</h3>
+                <p class="specialty">${c.specialization}</p>
+                <p class="match-bio">${c.bio.substring(0, 100)}...</p>
+                <button class="chat-match-btn" data-counselor="${c.id}">Start Chat</button>
+              </div>
+            </div>
+          `).join('');
+
+          resultsList.querySelectorAll('.chat-match-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              // Store selected counselor if needed
+              localStorage.setItem('selected_counselor', btn.dataset.counselor);
+              window.location.hash = '#chat';
+            });
+          });
+        }
+      } catch (err) {
+        console.error('Match failed:', err);
+      }
+    });
+  }
 }

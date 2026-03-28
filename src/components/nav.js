@@ -8,11 +8,7 @@ const NAV_LINKS = [
   { href: '#home', label: 'Home', icon: 'home' },
   { href: '#chat', label: 'Talk to EmoSense', icon: 'chat' },
   { href: '#student-hub', label: 'Student Hub', icon: 'dashboard' },
-  { href: '#counselors', label: 'Counselors', icon: 'people' },
   { href: '#voice-rooms', label: 'Voice Rooms', icon: 'mic' },
-  { href: '#therapist-match', label: 'Match Expert', icon: 'userCheck' },
-  { href: '#mood-tracker', label: 'Mood Tracker', icon: 'chart' },
-  { href: '#achievements', label: 'Achievements', icon: 'award' },
   { href: '#resources', label: 'Resources', icon: 'resources' },
   { href: '#about', label: 'About', icon: 'about' },
 ];
