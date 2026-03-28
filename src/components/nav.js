@@ -7,8 +7,7 @@ import { getCurrentRoute } from '../router.js';
 const NAV_LINKS = [
   { href: '#home', label: 'Home', icon: 'home' },
   { href: '#chat', label: 'Talk to EmoSense', icon: 'chat' },
-  { href: '#student-hub', label: 'Student Hub', icon: 'dashboard' },
-  { href: '#voice-rooms', label: 'Voice Rooms', icon: 'mic' },
+  { href: '#student-hub', label: 'Social Hub', icon: 'dashboard' },
   { href: '#resources', label: 'Resources', icon: 'resources' },
   { href: '#about', label: 'About', icon: 'about' },
 ];

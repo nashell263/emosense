@@ -2537,6 +2537,138 @@ h6 {
   border-top: none;
 }
 
+/* --- Social Hub & Voice Rooms --- */
+.social-section {
+  margin-bottom: var(--space-2xl);
+}
+
+.section-header {
+  margin-bottom: var(--space-xl);
+}
+
+.hub-rooms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-lg);
+}
+
+.hub-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: var(--radius-lg);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+  border: none;
+}
+
+.hub-btn.primary {
+  background: var(--primary-600);
+  color: white;
+}
+
+.hub-btn.secondary {
+  background: white;
+  color: var(--primary-700);
+  border: 1px solid var(--primary-200);
+}
+
+.hub-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* WhatsApp-style Chat Bubbles */
+.room-msg {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+  max-width: 85%;
+}
+
+.room-msg.own {
+  align-self: flex-end;
+}
+
+.room-msg.other {
+  align-self: flex-start;
+}
+
+.msg-bubble {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  position: relative;
+  box-shadow: var(--shadow-sm);
+}
+
+.room-msg.own .msg-bubble {
+  background: #dcf8c6;
+  /* WhatsApp light green */
+  color: #0d1117;
+  border-bottom-right-radius: 2px;
+}
+
+.room-msg.other .msg-bubble {
+  background: white;
+  color: #0d1117;
+  border-bottom-left-radius: 2px;
+}
+
+.msg-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.room-msg.own .msg-meta {
+  text-align: right;
+}
+
+.sender-alias {
+  font-weight: 700;
+  font-size: 0.75rem;
+  margin-bottom: 2px;
+  color: var(--primary-700);
+}
+
+.hub-actions {
+  display: flex;
+  gap: var(--space-md);
+  margin: var(--space-xl) 0;
+}
+
+.loading-pulse {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.5;
+  }
+}
+
+#insights-section {
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--space-2xl);
+  margin-top: var(--space-xl);
+}
+
 /* --- Schedule Editor --- */
 .schedule-grid {
   display: flex;

@@ -7,6 +7,7 @@
 import { apiGet, apiPost } from '../api.js';
 import { getEmotionEmoji, getEmotionColor, getEmotionLabel } from '../engine/sentiment-engine.js';
 import { getRecommendations, getContentCategories } from '../engine/recommendations.js';
+import { renderVoiceRoomGrid } from './voice-rooms.js';
 
 const USER_ID = 'session_' + (localStorage.getItem('emosense_user_id') || (() => {
   const id = Date.now().toString(36);
@@ -18,12 +19,31 @@ export function renderStudentHub(container) {
   container.innerHTML = `
     <div class="my-dashboard">
       <div class="dash-header">
+      <div class="dash-header">
         <div class="dash-header-text">
-          <h1>My Mental Health Dashboard</h1>
-          <p>Understand yourself better — track your mood, discover patterns, and find personalized support.</p>
+          <h1>Student Social Hub</h1>
+          <p>Connect with peers in anonymous safe spaces or explore your personalized mental health insights.</p>
         </div>
-        <button class="dash-log-btn" id="log-mood-btn">
-          <span>➕</span> Log Mood Now
+      </div>
+
+      <!-- ────── Voice Rooms (PROMINENT) ────── -->
+      <section class="social-section animate-slide-up">
+        <div class="section-header">
+          <h2>🎙️ Anonymous Safe Spaces</h2>
+          <p>Join a live topic-based room to talk or just listen. Fully anonymous, always supportive.</p>
+        </div>
+        <div id="hub-voice-rooms" class="hub-rooms-grid">
+          <div class="loading-pulse">Loading active spaces...</div>
+        </div>
+      </section>
+
+      <!-- ────── Quick Action Row ────── -->
+      <div class="hub-actions animate-slide-up-delay-1">
+        <button class="hub-btn primary" id="log-mood-btn">
+          <span>📊</span> Log My Current Mood
+        </button>
+        <button class="hub-btn secondary" id="view-insights-btn">
+          <span>🔍</span> View My Mood Insights
         </button>
       </div>
 
@@ -52,109 +72,59 @@ export function renderStudentHub(container) {
         </div>
       </div>
 
-      <!-- Dashboard Grid -->
-      <div class="dash-grid">
-        <!-- Mood Timeline Chart -->
-        <div class="dash-card dash-card-wide">
-          <div class="dash-card-header">
-            <h3>📈 Mood Timeline</h3>
-            <select class="dash-period" id="timeline-period">
-              <option value="7">Last 7 days</option>
-              <option value="14">Last 14 days</option>
-              <option value="30" selected>Last 30 days</option>
-            </select>
-          </div>
-          <div class="dash-card-body">
-            <canvas id="mood-timeline-canvas" height="200"></canvas>
-            <div id="timeline-empty" class="dash-empty" style="display:none;">
-              <p>📝 Start logging your mood to see trends here!</p>
+      <!-- ────── Insights Dashboard (COLLAPSIBLE) ────── -->
+      <div id="insights-section" style="display:none;" class="animate-slide-up">
+        <div class="dash-grid">
+          <!-- Mood Timeline Chart -->
+          <div class="dash-card dash-card-wide">
+            <div class="dash-card-header">
+              <h3>📈 Mood Timeline</h3>
+              <select class="dash-period" id="timeline-period">
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30" selected>Last 30 days</option>
+              </select>
             </div>
-          </div>
-        </div>
-
-        <!-- Mood Distribution -->
-        <div class="dash-card">
-          <div class="dash-card-header"><h3>🎯 Mood Distribution</h3></div>
-          <div class="dash-card-body">
-            <div id="mood-distribution" class="distribution-container">
-              <div class="dash-empty"><p>Log some moods to see distribution</p></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Trigger Insights -->
-        <div class="dash-card">
-          <div class="dash-card-header"><h3>🔍 Trigger Insights</h3></div>
-          <div class="dash-card-body">
-            <div id="trigger-insights" class="insights-container">
-              <div class="dash-empty"><p>Insights will appear after logging moods</p></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- AI Insights -->
-        <div class="dash-card dash-card-wide">
-          <div class="dash-card-header"><h3>🧠 AI Insights</h3></div>
-          <div class="dash-card-body">
-            <div id="ai-insights" class="ai-insights-container">
-              <div class="dash-empty"><p>Keep logging your mood — AI insights will appear after a few entries!</p></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Digital Twin Mood Prediction -->
-        <div class="dash-card">
-          <div class="dash-card-header"><h3>🎭 Digital Twin: Tomorrow's Outlook</h3></div>
-          <div class="dash-card-body">
-             <div id="mood-prediction" class="prediction-container">
-               <div class="dash-empty"><p>Predicting your next 24h...</p></div>
-             </div>
-          </div>
-        </div>
-
-        <!-- Recommended For You -->
-        <div class="dash-card dash-card-wide">
-          <div class="dash-card-header"><h3>💡 Recommended For You</h3></div>
-          <div class="dash-card-body">
-            <div id="dash-recommendations" class="dash-recommendations">
-              <div class="dash-empty"><p>Recommendations will appear based on your mood data</p></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- My Preferences -->
-        <div class="dash-card dash-card-wide">
-          <div class="dash-card-header"><h3>⚙️ My Preferences</h3></div>
-          <div class="dash-card-body">
-            <div class="prefs-grid">
-              <div class="pref-item">
-                <label>Lite Mode (Low Data/Power)</label>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="pref-lite-mode">
-                  <span class="slider"></span>
-                </div>
-              </div>
-              <div class="pref-item">
-                <label>AI Personality</label>
-                <select id="pref-personality">
-                  <option value="gentle">Gentle & Empathetic</option>
-                  <option value="motivational">Motivational & Bold</option>
-                  <option value="logical">Logical & Practical</option>
-                </select>
-              </div>
-              <div class="pref-item">
-                <label>Preferred Language</label>
-                <select id="pref-language">
-                  <option value="en">English</option>
-                  <option value="sn">Shona</option>
-                  <option value="nd">Ndebele</option>
-                </select>
+            <div class="dash-card-body">
+              <canvas id="mood-timeline-canvas" height="200"></canvas>
+              <div id="timeline-empty" class="dash-empty" style="display:none;">
+                <p>📝 Start logging your mood to see trends here!</p>
               </div>
             </div>
-            <button id="save-prefs-btn" class="save-btn">Save Preferences</button>
+          </div>
+
+          <!-- AI Insights -->
+          <div class="dash-card dash-card-wide">
+            <div class="dash-card-header"><h3>🧠 AI Guidance</h3></div>
+            <div class="dash-card-body">
+              <div id="ai-insights" class="ai-insights-container">
+                <div class="dash-empty"><p>AI insights will appear after a few entries!</p></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Digital Twin Mood Prediction -->
+          <div class="dash-card">
+            <div class="dash-card-header"><h3>🎭 Tomorrow's Outlook</h3></div>
+            <div class="dash-card-body">
+               <div id="mood-prediction" class="prediction-container">
+                 <div class="dash-empty"><p>Predicting your next 24h...</p></div>
+               </div>
+            </div>
+          </div>
+
+          <!-- Recommended For You -->
+          <div class="dash-card">
+            <div class="dash-card-header"><h3>💡 Recommended For You</h3></div>
+            <div class="dash-card-body">
+              <div id="dash-recommendations" class="dash-recommendations">
+                <div class="dash-empty"><p>Based on your recent moods</p></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    </div>
     </div>
   `;
 
@@ -175,6 +145,34 @@ export function renderStudentHub(container) {
       document.getElementById('mood-intensity-row').style.display = 'block';
     });
   });
+
+  const insightsBtn = document.getElementById('view-insights-btn');
+  const insightsSection = document.getElementById('insights-section');
+
+  insightsBtn.addEventListener('click', () => {
+    const isHidden = insightsSection.style.display === 'none';
+    insightsSection.style.display = isHidden ? 'block' : 'none';
+    insightsBtn.innerHTML = isHidden ? '<span>📊</span> Hide My Insights' : '<span>🔍</span> View My Mood Insights';
+    if (isHidden) {
+      insightsSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+
+  // ──── Load Voice Rooms ────
+  const loadVoiceRooms = async () => {
+    const rooms = await apiGet('/api/voice-rooms').catch(() => []);
+    renderVoiceRoomGrid(container, rooms);
+  };
+  loadVoiceRooms();
+
+  // Refresh rooms every 30 seconds
+  const roomRefreshInterval = setInterval(() => {
+    if (document.getElementById('hub-voice-rooms')) {
+      loadVoiceRooms();
+    } else {
+      clearInterval(roomRefreshInterval);
+    }
+  }, 30000);
 
   const intensitySlider = document.getElementById('mood-intensity');
   intensitySlider.addEventListener('input', () => {

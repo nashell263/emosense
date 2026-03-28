@@ -84,21 +84,11 @@ app.post('/api/chat', async (req, res) => {
             // 1. Analyze emotion
             const emotionData = await nlp.analyzeEmotion(message);
 
-            // 2. Update Pet Stats
-            const updatedStats = await growth.updatePetStats(sid, message, emotionData.dominantEmotion === 'joy' ? 'positive' : 'neutral');
-
-            // 3. Get AI Response with stats, personality, and language
-            const result = await gemini.chat(sid, message, { ...emotionData, stats: updatedStats }, {
-                personalityMode: personalityMode || 'gentle',
-                language: language || 'en'
-            });
-
-            // 4. Auto-log mood from chat interaction
+            // 4. Auto-log mood from chat interaction (Pet logic removed)
             res.json({
                 response: result.response,
                 source: result.source,
-                emotion: emotionData,
-                petStats: updatedStats
+                emotion: emotionData
             });
         } else {
             res.json({ response: null, source: 'local' });
@@ -778,10 +768,13 @@ app.post('/api/therapist-match', (req, res) => {
         if (c.is_online) score += 15;
 
         return { ...c, matchScore: score };
-    });
+    }).sort((a, b) => b.matchScore - a.matchScore);
 
-    scored.sort((a, b) => b.matchScore - a.matchScore);
-    res.json({ matches: scored, totalCounselors: counselors.length });
+    // Hardened Match: If no high scores, return top 3 regardless
+    const matches = scored.filter(c => c.matchScore > 15);
+    const finalResult = matches.length > 0 ? matches.slice(0, 3) : scored.slice(0, 3);
+
+    res.json(finalResult);
 });
 
 // ═══════════════════════════════════════════════════

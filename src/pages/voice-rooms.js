@@ -8,72 +8,35 @@ import { getSocketUrl } from '../api.js';
 
 export async function renderVoiceRooms(container) {
   const rooms = await apiGet('/api/voice-rooms');
+  renderVoiceRoomGrid(container, rooms);
+}
 
-  container.innerHTML = `
-    <div class="voice-rooms-page">
-      <div class="page-header">
-        <h1>Anonymous Safe Spaces</h1>
-        <p>Join a topic-based room to talk or just listen. Fully anonymous, always supportive.</p>
-      </div>
+export function renderVoiceRoomGrid(container, rooms) {
+  const target = container.querySelector('#hub-voice-rooms') || container;
 
-      <div class="rooms-grid">
-        ${rooms.map(room => `
-          <div class="room-card ${room.participants > 0 ? 'active' : ''}" data-id="${room.id}">
-            <div class="room-icon">${room.icon}</div>
-            <div class="room-info">
-              <h3>${room.name}</h3>
-              <p>${room.description}</p>
-              <div class="room-meta">
-                <span class="participant-count">
-                  <span class="pulse-dot"></span>
-                  ${room.participants} listening ${room.participants === 1 ? 'now' : ''}
-                </span>
-                <button class="join-room-btn" data-id="${room.id}">Join Room</button>
-              </div>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-
-      <!-- Active Room Modal (Hidden by default) -->
-      <div id="active-room-modal" class="room-modal" style="display: none;">
-        <div class="room-modal-content">
-          <div class="modal-header">
-            <h2 id="current-room-name">Room Name</h2>
-            <button id="leave-room-btn" class="leave-btn">Exit Room</button>
-          </div>
-          
-          <div class="voice-visualizer">
-            <div class="visualizer-bar"></div>
-            <div class="visualizer-bar"></div>
-            <div class="visualizer-bar"></div>
-            <div class="visualizer-bar"></div>
-            <div class="visualizer-bar"></div>
-          </div>
-
-          <div class="room-chat" id="room-messages">
-            <div class="system-msg">Welcome to the safe space. You are anonymous.</div>
-          </div>
-
-          <div class="room-footer">
-            <div class="voice-controls">
-              <button id="mic-toggle" class="mic-btn muted">
-                <span class="icon">🎤</span>
-                <span class="label">Muted</span>
-              </button>
-            </div>
-            <div class="chat-input-row">
-              <input type="text" id="room-input" placeholder="Type an anonymous message..." />
-              <button id="send-room-msg">Send</button>
+  target.innerHTML = `
+    <div class="hub-rooms-grid">
+      ${rooms.map(room => `
+        <div class="room-card ${room.participants > 0 ? 'active' : ''}" data-id="${room.id}">
+          <div class="room-icon">${room.icon}</div>
+          <div class="room-info">
+            <h3>${room.name}</h3>
+            <p>${room.description}</p>
+            <div class="room-meta">
+              <span class="participant-count">
+                <span class="pulse-dot"></span>
+                ${room.participants} listening ${room.participants === 1 ? 'now' : ''}
+              </span>
+              <button class="join-room-btn" data-id="${room.id}">Join Now</button>
             </div>
           </div>
         </div>
-      </div>
+      `).join('')}
     </div>
   `;
 
   // Event Listeners
-  document.querySelectorAll('.join-room-btn').forEach(btn => {
+  target.querySelectorAll('.join-room-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const roomId = btn.dataset.id;
       const room = rooms.find(r => r.id === roomId);
@@ -145,10 +108,15 @@ function openRoom(room) {
 
   function appendMessage(sender, text) {
     const msgEl = document.createElement('div');
-    msgEl.className = `room-msg ${sender === 'You' ? 'own' : 'other'}`;
+    const isOwn = sender === 'You';
+    msgEl.className = `room-msg ${isOwn ? 'own' : 'other'} animate-slide-up`;
+
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
     msgEl.innerHTML = `
-      <span class="sender">${sender}</span>
-      <span class="text">${text}</span>
+      <div class="sender-alias">${sender}</div>
+      <div class="msg-bubble">${text}</div>
+      <div class="msg-meta">${time}</div>
     `;
     messagesContainer.appendChild(msgEl);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -245,4 +213,10 @@ function openRoom(room) {
   // Handle Send Button
   sendBtn.onclick = sendMessage;
   input.onkeydown = (e) => { if (e.key === 'Enter') sendMessage(); };
+
+  // ──── Auto-Initialize Listener Context (Silent) ────
+  if (!window._audioContext) {
+    // We create it but it might stay suspended until a user interaction
+    window._audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
 }
