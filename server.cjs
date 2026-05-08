@@ -4,6 +4,8 @@
  */
 
 require('dotenv').config();
+// On Render, secret files are at /etc/secrets/ — load those too
+require('dotenv').config({ path: '/etc/secrets/.env', override: false });
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
