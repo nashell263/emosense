@@ -323,6 +323,13 @@ function initTables() {
   try { db.exec("ALTER TABLE chat_sessions ADD COLUMN priority INTEGER DEFAULT 3"); } catch(e) {}
   try { db.exec("ALTER TABLE chat_sessions ADD COLUMN intake_id INTEGER"); } catch(e) {}
   try { db.exec("ALTER TABLE chat_sessions ADD COLUMN issue_type TEXT"); } catch(e) {}
+
+  // crisis_alerts enhancements for SOS overhaul
+  try { db.exec("ALTER TABLE crisis_alerts ADD COLUMN latitude REAL"); } catch(e) {}
+  try { db.exec("ALTER TABLE crisis_alerts ADD COLUMN longitude REAL"); } catch(e) {}
+  try { db.exec("ALTER TABLE crisis_alerts ADD COLUMN location_address TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE crisis_alerts ADD COLUMN quick_message TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE crisis_alerts ADD COLUMN triage_answers TEXT"); } catch(e) {}
 }
 
 function seedData() {
@@ -337,10 +344,10 @@ function seedData() {
 
     insert.run(
       'Tendai Moyo',
-      'male',
+      'female',
       'Student Stress & Anxiety',
       'Senior counselor with 10 years experience in academic wellness.',
-      '/counselors/counselor-1.png',
+      '/counselors/counselor-female-1.png',
       'tendai.moyo@msu.ac.zw',
       hashedPassword,
       1
@@ -351,7 +358,7 @@ function seedData() {
       'male',
       'Relationship & Family',
       'Specialist in interpersonal dynamics and emotional support.',
-      '/counselors/counselor-2.png',
+      '/counselors/counselor-male-1.png',
       'tatenda.chirwa@msu.ac.zw',
       hashedPassword,
       0
@@ -362,7 +369,7 @@ function seedData() {
       'female',
       'Career & Life Transitions',
       'Helping students navigate the journey from campus to career.',
-      '/counselors/counselor-3.png',
+      '/counselors/counselor-female-2.png',
       'rutendo.mhaka@msu.ac.zw',
       hashedPassword,
       0

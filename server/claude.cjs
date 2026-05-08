@@ -124,7 +124,7 @@ function initAI(config) {
   const { anthropicKey, geminiKey, groqApiKey } = config;
   const isReal = (key) => key && !key.includes('your_') && !key.includes('_here') && key.length > 10;
 
-  if (isReal(anthropicKey)) { claudeApiKey = anthropicKey; activeProvider = 'claude'; console.log('✅ Claude AI (Anthropic) initialized — primary provider'); }
+  if (isReal(anthropicKey)) { claudeApiKey = anthropicKey; activeProvider = 'claude'; console.log('✅ Claude Sonnet 4 initialized — primary provider'); }
   if (isReal(groqApiKey)) { groqKey = groqApiKey; if (!activeProvider) activeProvider = 'groq'; console.log(`✅ Groq AI (Llama 3.3 70B) initialized${activeProvider === 'groq' ? '' : ' (fallback)'}`); }
   if (isReal(geminiKey)) {
     try {

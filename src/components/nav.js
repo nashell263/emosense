@@ -35,6 +35,27 @@ const ICONS = {
   feedback: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`
 };
 
+function getCounselorNavIndicator() {
+  try {
+    const token = localStorage.getItem('emosense_counselor_token');
+    if (token) {
+      // Decode JWT payload (base64)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const name = payload.name || 'Counselor';
+      return `
+        <div class="navbar-secure" id="nav-secure" style="display: flex; align-items: center; gap: 8px;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e;"></span>
+          <span style="font-size: 0.8rem; color: white; font-weight: 500;">${name}</span>
+          <button id="nav-logout-btn" style="background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.2); padding: 3px 10px; border-radius: 8px; font-size: 0.7rem; cursor: pointer; font-family: inherit;">Logout</button>
+        </div>`;
+    }
+  } catch(e) {}
+  return `<div class="navbar-secure" id="nav-secure">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Anonymous &amp; Secure
+  </div>`;
+}
+
 export function renderNav(container) {
   const current = getCurrentRoute();
 
@@ -72,10 +93,7 @@ export function renderNav(container) {
               `).join('')}
             </div>
           </div>
-          <div class="navbar-secure" id="nav-secure">
-            ${ICONS.lock}
-            Anonymous & Secure
-          </div>
+          ${getCounselorNavIndicator()}
         </div>
 
         <button class="hamburger" id="hamburger-btn" aria-label="Open menu">
@@ -155,5 +173,12 @@ export function renderNav(container) {
 
   document.querySelectorAll('.mobile-nav-link').forEach(link => {
     link.addEventListener('click', closeMobileNav);
+  });
+
+  // Nav logout button (for logged-in counselors)
+  document.getElementById('nav-logout-btn')?.addEventListener('click', () => {
+    localStorage.removeItem('emosense_counselor_token');
+    window.location.hash = '#home';
+    window.location.reload();
   });
 }

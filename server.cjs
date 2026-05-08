@@ -203,8 +203,12 @@ app.post('/api/counselors/login', (req, res) => {
         return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Set online
-    db.prepare('UPDATE counselors SET is_online = 1 WHERE id = ?').run(counselor.id);
+    // Set online + available
+    db.prepare('UPDATE counselors SET is_online = 1, status = ? WHERE id = ?').run('available', counselor.id);
+
+    // Clear stale sessions (older than 1 hour or from previous login)
+    db.prepare("UPDATE chat_sessions SET status = 'closed' WHERE counselor_id = ? AND status IN ('waiting', 'active') AND started_at < datetime('now', '-1 hour')").run(counselor.id);
+    console.log(`[AUTH] Cleared stale sessions for counselor ${counselor.id}`);
 
     const token = jwt.sign({ id: counselor.id, name: counselor.name }, JWT_SECRET, { expiresIn: '8h' });
 
@@ -243,7 +247,7 @@ app.post('/api/counselors/register', (req, res) => {
 
 app.get('/api/counselors', (req, res) => {
     const counselors = db.prepare(
-        'SELECT id, name, gender, photo, specialization, bio, is_online FROM counselors'
+        'SELECT id, name, gender, photo, specialization, bio, is_online, status FROM counselors'
     ).all();
 
     // Get schedule for each
@@ -351,19 +355,38 @@ app.post('/api/triage/submit', (req, res) => {
 
     // Smart counselor matching
     const counselors = db.prepare(
-        "SELECT id, name, gender, specialization, specialization_tags, is_online, status, max_concurrent_chats FROM counselors WHERE is_online = 1 AND status != 'break'"
+        "SELECT id, name, gender, photo, specialization, specialization_tags, is_online, status, max_concurrent_chats FROM counselors WHERE is_online = 1 AND (status IS NULL OR status = 'available')"
     ).all();
 
-    const scored = counselors.map(c => {
-        let score = 0;
+    console.log(`[TRIAGE] Online counselors found: ${counselors.length}`, counselors.map(c => `${c.name}(${c.gender},online=${c.is_online},status=${c.status})`));
+    console.log(`[TRIAGE] Preferred gender: "${preferredGender}"`);
+
+    // Filter by gender preference first
+    const genderFiltered = preferredGender
+        ? counselors.filter(c => c.gender === preferredGender)
+        : counselors;
+    // Fall back to all if no matches for that gender
+    const pool = genderFiltered.length > 0 ? genderFiltered : counselors;
+    console.log(`[TRIAGE] After gender filter: ${genderFiltered.length}, pool: ${pool.length}`);
+
+    const scored = pool.map(c => {
+        let score = 50; // Base score for being online
         const spec = ((c.specialization || '') + ' ' + (c.specialization_tags || '')).toLowerCase();
 
-        // Specialization match
-        if (spec.includes(issueType)) score += 20;
-        const issueKeywords = { stress: ['stress', 'academic', 'burnout', 'exam'], anxiety: ['anxiety', 'worry', 'panic'], depression: ['depression', 'mood', 'sadness'], relationship: ['relationship', 'family', 'interpersonal'], financial: ['financial', 'money'] };
-        (issueKeywords[issueType] || []).forEach(kw => { if (spec.includes(kw)) score += 5; });
+        // Direct issue-to-specialization mapping (strong match)
+        const issueSpecMap = {
+            stress:       ['stress', 'academic', 'burnout', 'anxiety', 'exam'],
+            anxiety:      ['anxiety', 'stress', 'worry', 'panic', 'overwhelm'],
+            depression:   ['depression', 'mood', 'sadness', 'mental health', 'life'],
+            relationship: ['relationship', 'family', 'interpersonal', 'social'],
+            financial:    ['financial', 'money', 'career', 'life transitions'],
+            other:        ['general', 'counselor', 'support', 'life']
+        };
+        
+        const keywords = issueSpecMap[issueType] || [];
+        keywords.forEach(kw => { if (spec.includes(kw)) score += 15; });
 
-        // Gender preference
+        // Gender preference bonus
         if (preferredGender && c.gender === preferredGender) score += 10;
 
         // Availability (check active session count)
@@ -373,10 +396,10 @@ app.post('/api/triage/submit', (req, res) => {
         else score += (maxChats - activeChatCount) * 5; // More capacity = higher score
 
         // Urgency bonus for online + available
-        if (priority >= 4 && c.status === 'available') score += 15;
+        if (priority >= 4 && (c.status === 'available' || c.status === null)) score += 15;
 
         return { ...c, matchScore: score, activeChatCount, maxChats };
-    }).filter(c => c.matchScore > -50).sort((a, b) => b.matchScore - a.matchScore);
+    }).filter(c => c.matchScore > 0).sort((a, b) => b.matchScore - a.matchScore);
 
     // Calculate queue position
     const waitingCount = db.prepare("SELECT COUNT(*) as c FROM chat_sessions WHERE status = 'waiting'").get()?.c || 0;
@@ -411,7 +434,7 @@ app.post('/api/triage/submit', (req, res) => {
     res.json({
         sessionId, alias, priority,
         assignedCounselor: bestMatch ? { id: bestMatch.id, name: bestMatch.name } : null,
-        availableCounselors: scored.slice(0, 5).map(c => ({ id: c.id, name: c.name, matchScore: c.matchScore, gender: c.gender, specialization: c.specialization })),
+        availableCounselors: scored.slice(0, 5).map(c => ({ id: c.id, name: c.name, photo: c.photo, matchScore: c.matchScore, gender: c.gender, specialization: c.specialization })),
         queue: { position: queuePosition, estimatedWaitMinutes: estimatedWait, totalWaiting: waitingCount },
         noCounselorsAvailable: scored.length === 0
     });
@@ -517,29 +540,7 @@ app.put('/api/counselors/status', authMiddleware, (req, res) => {
 // CRISIS / SOS API
 // ═══════════════════════════════════════════════════
 
-app.post('/api/crisis/sos', (req, res) => {
-    const { contactMethod, contactInfo, isUnsafe } = req.body;
-    const severity = isUnsafe ? 'critical' : 'high';
-
-    const insertResult = db.prepare(`
-        INSERT INTO crisis_alerts (student_alias, trigger_message, contact_method, contact_info, severity)
-        VALUES (?, ?, ?, ?, ?)
-    `).run('AnonymousSOS', `SOS Button: ${contactMethod}`, contactMethod, contactInfo || null, severity);
-
-    const alertId = insertResult.lastInsertRowid;
-    const alert = db.prepare('SELECT * FROM crisis_alerts WHERE id = ?').get(alertId);
-
-    // Trigger emergency manager
-    emergencyManager.triggerSOS(alert);
-
-    // Create a chat session automatically for this SOS
-    const sessionResult = db.prepare(`
-        INSERT INTO chat_sessions (student_alias, status, priority, issue_type)
-        VALUES (?, 'waiting', 5, 'emergency')
-    `).run('AnonymousSOS');
-
-    res.json({ success: true, alertId, sessionId: sessionResult.lastInsertRowid });
-});
+// SOS endpoint defined below (after emergency manager routes)
 
 app.post('/api/crisis/chat', async (req, res) => {
     const { message, history } = req.body;
@@ -659,25 +660,44 @@ app.post('/api/crisis/alert', (req, res) => {
 });
 
 app.post('/api/crisis/sos', (req, res) => {
-    const { contactMethod, contactInfo, isUnsafe } = req.body;
+    const { contactMethod, contactInfo, isUnsafe, severity: clientSeverity, quickMessage, triageAnswers, location } = req.body;
     let sessionId = req.body.sessionId || ('sos_' + Date.now());
     const alias = 'Student-' + Math.floor(1000 + Math.random() * 9000);
-    const triggerMsg = isUnsafe ? 'User reported: I am unsafe!' : 'Manual SOS Emergency Button';
-    const severity = isUnsafe ? 'critical' : 'high';
+    const severity = clientSeverity || (isUnsafe ? 'critical' : 'high');
+    const triggerMsg = quickMessage || (isUnsafe ? 'User reported: I am unsafe!' : 'SOS Emergency Button');
 
     const result = db.prepare(
-        'INSERT INTO crisis_alerts (session_id, student_alias, trigger_message, detected_emotion, severity, contact_method, contact_info) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(sessionId, alias, triggerMsg, 'crisis', severity, contactMethod || 'chat', contactInfo || '');
+        'INSERT INTO crisis_alerts (session_id, student_alias, trigger_message, detected_emotion, severity, contact_method, contact_info, latitude, longitude, location_address, quick_message, triage_answers) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(
+        sessionId, alias, triggerMsg, 'crisis', severity,
+        contactMethod || 'chat', contactInfo || '',
+        location?.lat || null, location?.lng || null, location?.address || null,
+        quickMessage || null, triageAnswers || null
+    );
 
     const alert = db.prepare('SELECT * FROM crisis_alerts WHERE id = ?').get(result.lastInsertRowid);
     emergencyManager.triggerSOS(alert);
 
-    // Create session to allow counselor immediate chat joining
+    // Create session for counselor chat
     try {
         db.prepare(
-            'INSERT INTO chat_sessions (id, student_alias, status) VALUES (?, ?, ?)'
-        ).run(sessionId, alias, 'waiting');
+            'INSERT INTO chat_sessions (id, student_alias, status, priority, issue_type) VALUES (?, ?, ?, ?, ?)'
+        ).run(sessionId, alias, 'waiting', severity === 'critical' ? 5 : severity === 'high' ? 4 : 3, 'emergency');
     } catch(e) {}
+
+    // Broadcast enhanced crisis alert to all connected counselors
+    io.emit('crisis-alert', {
+        id: alert.id,
+        sessionId,
+        studentAlias: alias,
+        severity,
+        contact_method: contactMethod,
+        trigger_message: triggerMsg,
+        quickMessage: quickMessage || '',
+        location: location ? { lat: location.lat, lng: location.lng, address: location.address } : null,
+        triageAnswers: triageAnswers ? JSON.parse(triageAnswers) : null,
+        timestamp: new Date().toISOString()
+    });
 
     res.json({ ok: true, alertId: alert.id, sessionId, alias });
 });
@@ -703,11 +723,32 @@ app.get('/api/crisis/alerts', authMiddleware, (req, res) => {
 });
 
 app.put('/api/crisis/alerts/:id/acknowledge', authMiddleware, (req, res) => {
+    const alert = db.prepare('SELECT * FROM crisis_alerts WHERE id = ?').get(req.params.id);
     db.prepare(
         "UPDATE crisis_alerts SET status = 'acknowledged', acknowledged_by = ? WHERE id = ?"
     ).run(req.counselorId, req.params.id);
     emergencyManager.acknowledgeSOS(req.params.id);
-    res.json({ ok: true });
+    
+    // Get counselor info
+    const counselor = db.prepare('SELECT id, name FROM counselors WHERE id = ?').get(req.counselorId);
+    
+    // Update the chat session to assign this counselor
+    if (alert && alert.session_id) {
+        db.prepare("UPDATE chat_sessions SET counselor_id = ?, status = 'active' WHERE id = ?").run(req.counselorId, alert.session_id);
+        
+        // Emit to the student's session room so their SOS modal closes
+        io.to(alert.session_id).emit('sos-accepted', {
+            alertId: alert.id,
+            sessionId: alert.session_id,
+            counselorId: req.counselorId,
+            counselorName: counselor?.name || 'Counselor'
+        });
+        
+        // Also emit chat-accepted for the live chat flow
+        io.to(alert.session_id).emit('chat-accepted', { sessionId: alert.session_id });
+    }
+    
+    res.json({ ok: true, sessionId: alert?.session_id });
 });
 
 app.put('/api/crisis/alerts/:id/resolve', authMiddleware, (req, res) => {
@@ -1202,8 +1243,9 @@ io.on('connection', (socket) => {
     socket.on('counselor-online', (data) => {
         const { counselorId } = data;
         activeCounselors.set(counselorId, socket.id);
-        db.prepare('UPDATE counselors SET is_online = 1 WHERE id = ?').run(counselorId);
+        db.prepare('UPDATE counselors SET is_online = 1, status = ? WHERE id = ?').run('available', counselorId);
         io.emit('counselor-status', { counselorId, isOnline: true });
+        console.log(`[SOCKET] Counselor ${counselorId} is now ONLINE (socket: ${socket.id})`);
     });
 
     // Student requests chat with counselor
@@ -1260,8 +1302,42 @@ io.on('connection', (socket) => {
         io.to(sessionId).emit('session-ended', { sessionId });
     });
 
+    // Call signaling
+    socket.on('call-initiate', (data) => {
+        const { sessionId, type, counselorId, counselorName } = data;
+        io.to(sessionId).emit('incoming-call', { sessionId, type, counselorId, counselorName });
+    });
 
+    socket.on('call-accept', (data) => {
+        const { sessionId } = data;
+        io.to(sessionId).emit('call-accepted', { sessionId });
+    });
 
+    socket.on('call-end', (data) => {
+        const { sessionId } = data;
+        io.to(sessionId).emit('call-ended', { sessionId });
+    });
+
+    // WebRTC signaling relay
+    socket.on('webrtc-offer', (data) => {
+        const { sessionId, offer } = data;
+        socket.to(sessionId).emit('webrtc-offer', { sessionId, offer });
+    });
+
+    socket.on('webrtc-answer', (data) => {
+        const { sessionId, answer } = data;
+        socket.to(sessionId).emit('webrtc-answer', { sessionId, answer });
+    });
+
+    socket.on('webrtc-ice-candidate', (data) => {
+        const { sessionId, candidate } = data;
+        socket.to(sessionId).emit('webrtc-ice-candidate', { sessionId, candidate });
+    });
+
+    // SOS live location relay
+    socket.on('sos-location-update', (data) => {
+        io.emit('sos-location-update', data);
+    });
     // Disconnect
     socket.on('disconnect', () => {
         // Clean up voice rooms
@@ -1414,6 +1490,7 @@ io.on('connection', (socket) => {
 
 // Serve static files from the public folder (for uploads/assets)
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+app.use('/counselors', express.static(path.join(__dirname, 'public/counselors')));
 
 // Serve static files from the frontend build
 app.use(express.static(path.join(__dirname, 'dist')));

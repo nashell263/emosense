@@ -27,7 +27,7 @@ function renderLogin(container) {
       <div class="login-card animate-slide-up">
         <div class="login-header">
           <div class="login-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary-600)" stroke-width="1.5"><path d="M12 2C9 2 7 4 7 6.5c0 1 .3 1.8.8 2.5C6.3 9.8 5 11.3 5 13c0 1.5.8 2.8 2 3.5-.2.5-.3 1-.3 1.5 0 2.2 1.8 4 4 4h2.6c2.2 0 4-1.8 4-4 0-.5-.1-1-.3-1.5 1.2-.7 2-2 2-3.5 0-1.7-1.3-3.2-2.8-3.9.5-.7.8-1.5.8-2.6C17 4 15 2 12 2z"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5"><path d="M12 2C9 2 7 4 7 6.5c0 1 .3 1.8.8 2.5C6.3 9.8 5 11.3 5 13c0 1.5.8 2.8 2 3.5-.2.5-.3 1-.3 1.5 0 2.2 1.8 4 4 4h2.6c2.2 0 4-1.8 4-4 0-.5-.1-1-.3-1.5 1.2-.7 2-2 2-3.5 0-1.7-1.3-3.2-2.8-3.9.5-.7.8-1.5.8-2.6C17 4 15 2 12 2z"/></svg>
         </div>
         <h2>Counselor Login</h2>
         <p>Access your counseling dashboard to manage sessions and help students.</p>
@@ -46,10 +46,21 @@ function renderLogin(container) {
           </button>
         </form>
         <div class="login-demo-note">
-          <strong>Demo accounts:</strong><br>
-          tendai.moyo@msu.ac.zw / counselor123<br>
-          tatenda.chirwa@msu.ac.zw / counselor123<br>
-          rutendo.mhaka@msu.ac.zw / counselor123
+          <strong>📋 Demo Accounts:</strong><br>
+          <div style="margin-top:0.5rem;font-size:0.8rem;line-height:1.8;">
+            <div style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.2);padding:0.4rem 0.6rem;border-radius:8px;margin-bottom:0.3rem;">
+              👩 <strong>Tendai Moyo</strong> (Female — Stress & Anxiety)<br>
+              📧 tendai.moyo@msu.ac.zw &nbsp;🔑 counselor123
+            </div>
+            <div style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.2);padding:0.4rem 0.6rem;border-radius:8px;margin-bottom:0.3rem;">
+              👨 <strong>Tatenda Chirwa</strong> (Male — Relationships)<br>
+              📧 tatenda.chirwa@msu.ac.zw &nbsp;🔑 counselor123
+            </div>
+            <div style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.2);padding:0.4rem 0.6rem;border-radius:8px;">
+              👩 <strong>Rutendo Mhaka</strong> (Female — Career & Life)<br>
+              📧 rutendo.mhaka@msu.ac.zw &nbsp;🔑 counselor123
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -137,17 +148,17 @@ function renderDashboardUI(container, data, token) {
 
           <!-- Queue Stats -->
           <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
-            <div style="background: var(--primary-50); padding: 0.75rem 1rem; border-radius: var(--radius-md); flex: 1; min-width: 120px; text-align: center;">
-              <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary-600);">${activeSessions.filter(s => s.status === 'waiting').length}</div>
-              <div style="font-size: 0.75rem; color: var(--text-muted);">Waiting</div>
+            <div style="background: rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.2); padding: 0.75rem 1rem; border-radius: 12px; flex: 1; min-width: 120px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: 700; color: #818cf8;">${activeSessions.filter(s => s.status === 'waiting').length}</div>
+              <div style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">Waiting</div>
             </div>
-            <div style="background: var(--green-50, #f0fdf4); padding: 0.75rem 1rem; border-radius: var(--radius-md); flex: 1; min-width: 120px; text-align: center;">
-              <div style="font-size: 1.5rem; font-weight: 700; color: var(--green-600, #16a34a);">${activeSessions.filter(s => s.status === 'active').length}</div>
-              <div style="font-size: 0.75rem; color: var(--text-muted);">Active</div>
+            <div style="background: rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2); padding: 0.75rem 1rem; border-radius: 12px; flex: 1; min-width: 120px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: 700; color: #34d399;">${activeSessions.filter(s => s.status === 'active').length}</div>
+              <div style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">Active</div>
             </div>
-            <div style="background: var(--gray-50); padding: 0.75rem 1rem; border-radius: var(--radius-md); flex: 1; min-width: 120px; text-align: center;">
-              <div style="font-size: 1.5rem; font-weight: 700;">${counselor.max_concurrent_chats || 3}</div>
-              <div style="font-size: 0.75rem; color: var(--text-muted);">Max Chats</div>
+            <div style="background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); padding: 0.75rem 1rem; border-radius: 12px; flex: 1; min-width: 120px; text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: 700; color: white;">${counselor.max_concurrent_chats || 3}</div>
+              <div style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">Max Chats</div>
             </div>
           </div>
 
@@ -166,8 +177,8 @@ function renderDashboardUI(container, data, token) {
                   <div class="session-info">
                     <strong>${s.student_alias}</strong>
                     <span class="session-status-badge ${s.status}">${s.status}</span>
-                    ${s.issue_type ? `<span style="font-size: 0.7rem; background: var(--primary-50); color: var(--primary-700); padding: 2px 8px; border-radius: 10px;">${s.issue_type}</span>` : ''}
-                    ${s.priority >= 4 ? '<span style="font-size: 0.7rem; background: var(--red-50); color: var(--red-600); padding: 2px 8px; border-radius: 10px;">⚡ Urgent</span>' : ''}
+                    ${s.issue_type ? `<span style="font-size: 0.7rem; background: rgba(99,102,241,0.12); color: #a5b4fc; padding: 2px 8px; border-radius: 10px;">${s.issue_type}</span>` : ''}
+                    ${s.priority >= 4 ? '<span style="font-size: 0.7rem; background: rgba(239,68,68,0.15); color: #f87171; padding: 2px 8px; border-radius: 10px;">⚡ Urgent</span>' : ''}
                   </div>
                   <div class="session-actions">
                     ${s.status === 'waiting'
@@ -183,27 +194,29 @@ function renderDashboardUI(container, data, token) {
             <div class="counselor-chat-header" id="counselor-chat-header"></div>
 
             <!-- Intake Summary -->
-            <div id="intake-summary" style="display: none; background: var(--gray-50); padding: 0.75rem 1rem; border-radius: var(--radius-md); margin-bottom: 0.5rem; font-size: 0.85rem;"></div>
+            <div id="intake-summary" style="display: none; background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); padding: 0.75rem 1rem; border-radius: 12px; margin-bottom: 0.5rem; font-size: 0.85rem;"></div>
 
             <div class="counselor-chat-messages" id="counselor-chat-messages"></div>
 
             <!-- Session Notes -->
-            <div id="session-notes-panel" style="display: none; background: var(--primary-50); padding: 0.75rem 1rem; border-radius: var(--radius-md); margin-top: 0.5rem;">
+            <div id="session-notes-panel" style="display: none; background: rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.15); padding: 0.75rem 1rem; border-radius: 12px; margin-top: 0.5rem;">
               <div style="font-weight: 600; font-size: 0.8rem; margin-bottom: 0.5rem;">📝 Session Notes</div>
               <div id="session-notes-list" style="max-height: 100px; overflow-y: auto; margin-bottom: 0.5rem; font-size: 0.8rem;"></div>
               <div style="display: flex; gap: 0.5rem;">
-                <input type="text" id="note-input" placeholder="Add a note..." style="flex: 1; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--gray-300); font-size: 0.8rem;" />
+                <input type="text" id="note-input" placeholder="Add a note..." style="flex: 1; padding: 0.4rem 0.6rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: white; font-size: 0.8rem;" />
                 <button class="btn btn-sm btn-primary" id="add-note-btn">Add</button>
               </div>
             </div>
 
             <div class="counselor-chat-input">
-              <div class="chat-input-wrapper">
-                <input type="text" class="chat-input" id="counselor-msg-input" placeholder="Type your response..." />
+              <div class="chat-input-wrapper" style="display: flex; gap: 0.5rem; align-items: center;">
+                <button class="btn btn-sm" id="attach-file-btn" title="Attach file" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; padding: 0.4rem;">📎</button>
+                <input type="text" class="chat-input" id="counselor-msg-input" placeholder="Type a message..." />
                 <button class="chat-send-btn" id="counselor-msg-send">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 </button>
               </div>
+              <input type="file" id="file-upload-input" style="display: none;" accept="image/*,.pdf,.doc,.docx,.txt" />
             </div>
           </div>
         </div>
@@ -290,6 +303,26 @@ function renderDashboardUI(container, data, token) {
         }
     });
 
+    // STATUS BUTTONS
+    container.querySelectorAll('[data-set-status]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const status = btn.dataset.setStatus;
+            try {
+                await apiPut('/api/counselors/status', { status }, token);
+                // Update UI - highlight active button
+                container.querySelectorAll('[data-set-status]').forEach(b => {
+                    b.classList.remove('btn-primary');
+                    b.classList.add('btn-outline');
+                });
+                btn.classList.remove('btn-outline');
+                btn.classList.add('btn-primary');
+                currentCounselor.status = status;
+            } catch (err) {
+                alert('Failed to update status: ' + err.message);
+            }
+        });
+    });
+
     // ACCEPT SESSION
     container.querySelectorAll('.accept-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -319,14 +352,45 @@ function renderDashboardUI(container, data, token) {
     document.getElementById('counselor-msg-input')?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') sendCounselorMessage();
     });
+
+    // FILE ATTACHMENT
+    document.getElementById('attach-file-btn')?.addEventListener('click', () => {
+        document.getElementById('file-upload-input')?.click();
+    });
+    document.getElementById('file-upload-input')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file || !activeSessionId) return;
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.url) {
+                const isImg = data.type?.startsWith('image/');
+                const content = isImg
+                    ? `<img src="${data.url}" alt="${file.name}" style="max-width:200px;border-radius:8px;cursor:pointer;" onclick="window.open('${data.url}','_blank')" />`
+                    : `📄 <a href="${data.url}" target="_blank" style="color:var(--primary-600);text-decoration:underline;">${file.name}</a>`;
+                socket.emit('send-message', { sessionId: activeSessionId, senderType: 'counselor', content });
+            }
+        } catch (err) { console.error('Upload failed:', err); }
+        e.target.value = '';
+    });
 }
 
 function connectSocket(container, token) {
     if (socket) socket.disconnect();
+    
+    const counselorId = currentCounselor?.id;
+    if (!counselorId) {
+        console.error('[DASH] Cannot connect socket: no counselor ID');
+        return;
+    }
+
     socket = io(getSocketUrl());
 
     socket.on('connect', () => {
-        socket.emit('counselor-online', { counselorId: currentCounselor.id });
+        console.log('[DASH] Socket connected, emitting counselor-online for ID:', counselorId);
+        socket.emit('counselor-online', { counselorId: counselorId });
     });
 
     socket.on('crisis-alert', (alert) => {
@@ -374,42 +438,143 @@ function connectSocket(container, token) {
             msgContainer.scrollTop = msgContainer.scrollHeight;
         }
     });
+
+    socket.on('call-accepted', () => {
+        const statusEl = document.getElementById('dash-call-status');
+        if (statusEl) statusEl.textContent = '✅ Student connected!';
+    });
+
+    socket.on('call-ended', () => {
+        const overlay = document.getElementById('dash-call-overlay');
+        if (overlay) endDashCall(overlay);
+    });
+
+    // WhatsApp/Call alert for supervisors on critical SOS
+    socket.on('sos-whatsapp-alert', (data) => {
+        // Play alert sound
+        try {
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            osc.connect(ctx.destination);
+            osc.start();
+            setTimeout(() => { osc.frequency.value = 660; }, 200);
+            setTimeout(() => { osc.frequency.value = 880; }, 400);
+            setTimeout(() => { osc.stop(); ctx.close(); }, 600);
+        } catch(e) {}
+
+        // Show floating action alert
+        const existing = document.getElementById('sos-call-alert');
+        if (existing) existing.remove();
+        const alertDiv = document.createElement('div');
+        alertDiv.id = 'sos-call-alert';
+        alertDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100000;background:linear-gradient(135deg,#1e293b,#0f172a);border:2px solid #dc2626;border-radius:20px;padding:2rem;color:white;text-align:center;max-width:380px;box-shadow:0 25px 50px rgba(0,0,0,0.5);animation:sos-slide-in 0.3s ease;';
+        alertDiv.innerHTML = `
+            <div style="font-size:2.5rem;margin-bottom:0.5rem;">🚨</div>
+            <h3 style="margin:0 0 0.5rem;font-size:1.2rem;color:white;">STUDENT IN DANGER</h3>
+            <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem;">${data.studentAlias} needs immediate help</p>
+            <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
+                <a href="${data.whatsappUrl}" target="_blank" style="display:flex;align-items:center;gap:0.5rem;padding:0.7rem 1.25rem;background:#25D366;color:white;border-radius:12px;font-weight:700;text-decoration:none;font-size:0.85rem;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.638l4.703-1.228A11.943 11.943 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.153 0-4.144-.68-5.78-1.834l-.404-.296-2.79.729.757-2.715-.325-.427A9.963 9.963 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+                    Message
+                </a>
+                <a href="${data.whatsappCallUrl}" target="_blank" style="display:flex;align-items:center;gap:0.5rem;padding:0.7rem 1.25rem;background:#128C7E;color:white;border-radius:12px;font-weight:700;text-decoration:none;font-size:0.85rem;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.11 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    WA Call
+                </a>
+                <a href="${data.callUrl}" style="display:flex;align-items:center;gap:0.5rem;padding:0.7rem 1.25rem;background:#059669;color:white;border-radius:12px;font-weight:700;text-decoration:none;font-size:0.85rem;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.11 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72"/></svg>
+                    Phone
+                </a>
+            </div>
+            <button onclick="this.parentElement.remove()" style="margin-top:1rem;background:none;border:1px solid rgba(255,255,255,0.15);color:#94a3b8;padding:0.4rem 1.5rem;border-radius:8px;cursor:pointer;font-size:0.8rem;">Dismiss</button>
+        `;
+        document.body.appendChild(alertDiv);
+
+        // Auto-dismiss after 30s
+        setTimeout(() => { alertDiv?.remove(); }, 30000);
+    });
 }
 
 function showDashboardSOSBanner(alert, container, token) {
     const mainArea = container.querySelector('.dashboard-main');
     
-    // Remove old banner if exists
     const oldBanner = document.getElementById('dash-sos-banner');
     if (oldBanner) oldBanner.remove();
+
+    const severity = alert.severity || 'high';
+    const severityColors = { critical: '#dc2626', high: '#ea580c', moderate: '#ca8a04' };
+    const severityBg = { critical: '#fef2f2', high: '#fff7ed', moderate: '#fefce8' };
+    const triageHtml = alert.triageAnswers ? `
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.4rem;">
+            ${alert.triageAnswers.danger ? '<span style="background:#fecaca;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:600;">⚠️ In Danger</span>' : ''}
+            ${alert.triageAnswers.selfharm ? '<span style="background:#fecaca;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:600;">🚨 Self-Harm Risk</span>' : ''}
+            ${alert.triageAnswers.urgent ? '<span style="background:#fed7aa;color:#9a3412;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:600;">🔴 Urgent Support</span>' : ''}
+        </div>
+    ` : '';
+
+    const locationHtml = alert.location ? `
+        <div style="margin-top:0.4rem;font-size:0.8rem;">
+            📍 <a href="https://maps.google.com/?q=${alert.location.lat},${alert.location.lng}" target="_blank" style="color:var(--primary-600);text-decoration:underline;">${alert.location.address || `${alert.location.lat.toFixed(4)}, ${alert.location.lng.toFixed(4)}`}</a>
+        </div>
+    ` : '';
 
     const banner = document.createElement('div');
     banner.id = 'dash-sos-banner';
     banner.className = 'dashboard-sos-banner';
+    banner.style.borderLeft = `5px solid ${severityColors[severity]}`;
+    banner.style.background = severityBg[severity];
     banner.innerHTML = `
-        <div class="sos-banner-info">
-            <strong>🚨 EMERGENCY SOS ALERT</strong>
-            <p>${alert.studentAlias} - Method: ${alert.contact_method} - ${alert.trigger_message}</p>
+        <div class="sos-banner-info" style="flex:1;">
+            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.35rem;">
+                <strong style="font-size:1rem;">🚨 EMERGENCY SOS ALERT</strong>
+                <span style="background:${severityColors[severity]};color:white;padding:2px 10px;border-radius:12px;font-size:0.7rem;font-weight:700;text-transform:uppercase;">${severity}</span>
+            </div>
+            <p style="margin:0;font-size:0.85rem;color:var(--gray-700);">
+                <strong>${alert.studentAlias}</strong> · ${new Date(alert.timestamp).toLocaleTimeString()}
+                ${alert.quickMessage ? ` · "${alert.quickMessage}"` : ''}
+            </p>
+            ${triageHtml}
+            ${locationHtml}
         </div>
-        <button class="btn-sos-accept" data-id="${alert.id}" data-session="${alert.sessionId}">Accept Emergency Case</button>
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-shrink:0;">
+            <button class="btn-sos-accept" data-id="${alert.id}" data-session="${alert.sessionId}" style="background:#059669;color:white;border:none;padding:0.6rem 1.25rem;border-radius:8px;font-weight:700;cursor:pointer;">Accept Case</button>
+            <button class="btn-sos-escalate" style="background:#dc2626;color:white;border:none;padding:0.6rem 1rem;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.8rem;" title="Alert campus security">🚨 Escalate</button>
+        </div>
     `;
     
     mainArea.prepend(banner);
 
     banner.querySelector('.btn-sos-accept').addEventListener('click', async () => {
         try {
-            // Acknowledge via API to stop escalations
             await apiPut(`/api/crisis/alerts/${alert.id}/acknowledge`, {}, token);
-            
-            // Notify student client to update UI
             socket.emit('crisis-acknowledged', { alertId: alert.id, sessionId: alert.sessionId });
-
             banner.remove();
-            
-            // Jump straight into the active chat session
             acceptSession(alert.sessionId, container);
         } catch(err) {
             console.error(err);
+        }
+    });
+
+    banner.querySelector('.btn-sos-escalate')?.addEventListener('click', () => {
+        if (confirm('This will alert campus security and emergency services. Continue?')) {
+            alert.escalated = true;
+            // Send escalation notification via existing emergency system
+            fetch('/api/crisis/sos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contactMethod: 'escalation',
+                    isUnsafe: true,
+                    severity: 'critical',
+                    quickMessage: `ESCALATED by counselor: ${alert.studentAlias} needs immediate on-ground response. ${alert.location ? 'Location: ' + (alert.location.address || alert.location.lat + ',' + alert.location.lng) : 'No location shared.'}`
+                })
+            });
+            const escBtn = banner.querySelector('.btn-sos-escalate');
+            escBtn.textContent = '✅ Escalated';
+            escBtn.disabled = true;
+            escBtn.style.background = '#6b7280';
         }
     });
 }
@@ -439,10 +604,45 @@ async function openCounselorChat(sessionId, container) {
     chatArea.style.display = 'block';
 
     const header = document.getElementById('counselor-chat-header');
-    header.innerHTML = `<strong>Chat Session: ${sessionId.slice(0, 15)}...</strong>
-    <div style="display: flex; gap: 0.5rem;">
-      <button class="btn btn-sm" style="background: var(--red-50); color: var(--red-600); border: 1px solid var(--red-100);" id="end-counselor-session">End Session</button>
+    const session = document.querySelector(`.session-item[data-session="${sessionId}"]`);
+    const studentName = session?.querySelector('strong')?.textContent || sessionId.slice(0, 15);
+    header.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
+      <div style="width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, var(--primary-400), var(--primary-600)); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.9rem;">${studentName.charAt(0)}</div>
+      <div>
+        <strong style="font-size: 0.95rem;">${studentName}</strong>
+        <div style="font-size: 0.7rem; color: #16a34a;">● Online</div>
+      </div>
+    </div>
+    <div style="display: flex; gap: 0.4rem; align-items: center;">
+      <button class="btn btn-sm" id="dash-audio-call" title="Audio Call" style="width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;border-radius:50%;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      </button>
+      <button class="btn btn-sm" id="dash-video-call" title="Video Call" style="width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:50%;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+      </button>
+      <button class="btn btn-sm" id="clear-chat-btn" title="Clear Chat" style="width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;background:var(--gray-50);color:var(--gray-400);border:1px solid var(--gray-200);border-radius:50%;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+      <button class="btn btn-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:0.35rem 0.85rem;border-radius:20px;font-size:0.8rem;font-weight:600;" id="end-counselor-session">End</button>
     </div>`;
+
+    // Audio call
+    document.getElementById('dash-audio-call').addEventListener('click', () => {
+        startDashCall(sessionId, 'audio');
+    });
+
+    // Video call
+    document.getElementById('dash-video-call').addEventListener('click', () => {
+        startDashCall(sessionId, 'video');
+    });
+
+    // Clear chat
+    document.getElementById('clear-chat-btn').addEventListener('click', () => {
+        if (confirm('Clear all messages from this view?')) {
+            document.getElementById('counselor-chat-messages').innerHTML = '<div style="text-align:center;padding:1rem;color:var(--text-muted);font-size:0.8rem;">Chat cleared</div>';
+        }
+    });
 
     document.getElementById('end-counselor-session').addEventListener('click', () => {
         socket.emit('end-session', { sessionId });
@@ -506,7 +706,8 @@ async function openCounselorChat(sessionId, container) {
         msgContainer.scrollTop = msgContainer.scrollHeight;
     } catch (err) { console.error(err); }
 
-    socket.emit('counselor-accept-chat', { sessionId });
+    // Join the room without re-emitting accept (already done in acceptSession)
+    socket.emit('join-room', sessionId);
     document.getElementById('counselor-msg-input').focus();
 }
 
@@ -586,4 +787,163 @@ function sendCounselorMessage() {
         content: text
     });
     input.value = '';
+}
+
+/* ──────────── AUDIO/VIDEO CALL — WebRTC ──────────── */
+
+let dashCallStream = null;
+let dashCallTimer = null;
+let dashCallSecs = 0;
+let peerConnection = null;
+
+const ICE_SERVERS = { iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+]};
+
+function startDashCall(sessionId, type) {
+    const chatArea = document.getElementById('counselor-chat-area');
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'dash-call-overlay';
+    overlay.style.cssText = 'position:absolute;inset:0;background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:var(--radius-lg);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;color:white;';
+    
+    overlay.innerHTML = `
+        <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--primary-400),var(--primary-600));display:flex;align-items:center;justify-content:center;font-size:2rem;animation:call-ring 2s infinite;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.11 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        </div>
+        ${type === 'video' ? '<div style="display:flex;gap:0.75rem;"><video id="dash-local-video" autoplay muted playsinline style="width:160px;height:120px;border-radius:12px;background:#000;border:2px solid rgba(255,255,255,0.2);"></video><video id="dash-remote-video" autoplay playsinline style="width:160px;height:120px;border-radius:12px;background:#000;border:2px solid var(--primary-400);"></video></div>' : '<audio id="dash-remote-audio" autoplay></audio>'}
+        <div id="dash-call-status" style="font-size:0.9rem;opacity:0.8;">Ringing...</div>
+        <div id="dash-call-timer" style="font-family:var(--font-display);font-size:2.5rem;font-weight:700;">00:00</div>
+        <div style="display:flex;gap:1rem;">
+            <button id="dash-call-mute" style="width:56px;height:56px;border-radius:50%;border:none;background:rgba(255,255,255,0.15);color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Mute">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </button>
+            ${type === 'video' ? '<button id="dash-call-camera" style="width:56px;height:56px;border-radius:50%;border:none;background:rgba(255,255,255,0.15);color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Camera"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></button>' : ''}
+            <button id="dash-call-end" style="width:56px;height:56px;border-radius:50%;border:none;background:#ef4444;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="End Call">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.11 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+        </div>
+    `;
+    
+    chatArea.style.position = 'relative';
+    chatArea.appendChild(overlay);
+    
+    // Setup WebRTC + start media
+    initWebRTCCall(sessionId, type);
+    
+    document.getElementById('dash-call-end').addEventListener('click', () => endDashCall(overlay));
+    
+    let muted = false;
+    document.getElementById('dash-call-mute').addEventListener('click', (e) => {
+        muted = !muted;
+        if (dashCallStream) dashCallStream.getAudioTracks().forEach(t => { t.enabled = !muted; });
+        e.currentTarget.style.background = muted ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.15)';
+    });
+    
+    if (type === 'video') {
+        let camOff = false;
+        document.getElementById('dash-call-camera')?.addEventListener('click', (e) => {
+            camOff = !camOff;
+            if (dashCallStream) dashCallStream.getVideoTracks().forEach(t => { t.enabled = !camOff; });
+            e.currentTarget.style.background = camOff ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.15)';
+        });
+    }
+    
+    socket.emit('call-initiate', { sessionId, type, counselorId: currentCounselor.id, counselorName: currentCounselor.name });
+}
+
+async function initWebRTCCall(sessionId, type) {
+    const statusEl = document.getElementById('dash-call-status');
+    try {
+        const constraints = { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
+        if (type === 'video') constraints.video = { width: 640, height: 480, facingMode: 'user' };
+        
+        dashCallStream = await navigator.mediaDevices.getUserMedia(constraints);
+        statusEl.textContent = 'Ringing student...';
+        
+        if (type === 'video') {
+            const localVid = document.getElementById('dash-local-video');
+            if (localVid) localVid.srcObject = dashCallStream;
+        }
+        
+        // Create peer connection
+        peerConnection = new RTCPeerConnection(ICE_SERVERS);
+        
+        // Add local tracks
+        dashCallStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, dashCallStream);
+        });
+        
+        // Handle remote stream
+        peerConnection.ontrack = (event) => {
+            if (type === 'video') {
+                const remoteVid = document.getElementById('dash-remote-video');
+                if (remoteVid) remoteVid.srcObject = event.streams[0];
+            } else {
+                const remoteAudio = document.getElementById('dash-remote-audio');
+                if (remoteAudio) remoteAudio.srcObject = event.streams[0];
+            }
+            statusEl.textContent = '✅ Connected';
+            startCallTimer();
+        };
+        
+        // ICE candidates
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit('webrtc-ice-candidate', { sessionId, candidate: event.candidate });
+            }
+        };
+        
+        // Create and send offer
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.emit('webrtc-offer', { sessionId, offer });
+        
+        // Listen for answer
+        socket.on('webrtc-answer', async (data) => {
+            if (peerConnection && data.answer) {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            }
+        });
+        
+        // Listen for ICE candidates from remote
+        socket.on('webrtc-ice-candidate', async (data) => {
+            if (peerConnection && data.candidate) {
+                try { await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e) {}
+            }
+        });
+        
+    } catch (err) {
+        statusEl.textContent = '⚠️ ' + (type === 'video' ? 'Camera/mic' : 'Microphone') + ' access denied. Check browser permissions.';
+    }
+}
+
+function startCallTimer() {
+    dashCallSecs = 0;
+    dashCallTimer = setInterval(() => {
+        dashCallSecs++;
+        const el = document.getElementById('dash-call-timer');
+        if (el) el.textContent = `${String(Math.floor(dashCallSecs/60)).padStart(2,'0')}:${String(dashCallSecs%60).padStart(2,'0')}`;
+    }, 1000);
+}
+
+function endDashCall(overlay) {
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    if (dashCallStream) {
+        dashCallStream.getTracks().forEach(t => t.stop());
+        dashCallStream = null;
+    }
+    if (dashCallTimer) {
+        clearInterval(dashCallTimer);
+        dashCallTimer = null;
+    }
+    // Clean up socket listeners
+    socket.off('webrtc-answer');
+    socket.off('webrtc-ice-candidate');
+    if (overlay) overlay.remove();
+    socket.emit('call-end', { sessionId: activeSessionId });
 }

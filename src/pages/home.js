@@ -1,206 +1,343 @@
 /**
- * EmoSense Home Page
- * Matching the provided screenshots with hero, stats, features, CTA.
+ * EmoSense Home Page — Premium Redesign
+ * Glassmorphism + Animated Gradients + Modern UX
  */
 
 export function renderHome(container) {
     container.innerHTML = `
-    <!-- A. Hero Section -->
-    <section class="section" style="padding-top: var(--space-3xl); padding-bottom: var(--space-2xl); background: linear-gradient(180deg, var(--primary-50) 0%, #ffffff 100%); text-align: center;">
-      <div class="container animate-slide-up">
-        <h1 style="font-family: var(--font-display); font-size: 3.5rem; font-weight: 800; color: var(--gray-900); margin-bottom: var(--space-md); line-height: 1.1;">
-          You don't have to handle <br>everything <span style="color: var(--primary-600);">alone.</span>
-        </h1>
-        <p style="font-size: 1.2rem; color: var(--text-secondary); max-width: 600px; margin: 0 auto var(--space-xl); line-height: 1.6;">
-          EmoSense provides a safe, anonymous space for MSU students. Whether you need an ear right now or professional counseling, we're here.
-        </p>
+    <!-- Animated Background -->
+    <div class="es-home">
+      <div class="es-bg-gradient"></div>
+      <div class="es-bg-orb es-orb-1"></div>
+      <div class="es-bg-orb es-orb-2"></div>
+      <div class="es-bg-orb es-orb-3"></div>
 
-        <!-- B. Quick Access Options -->
-        <div style="display: flex; justify-content: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-2xl);">
-          <a href="#chat" class="btn btn-primary btn-lg" style="padding: 1rem 2rem; font-size: 1.1rem; border-radius: var(--radius-full); box-shadow: 0 10px 20px rgba(59, 130, 246, 0.2);">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-            Chat with AI Now
-          </a>
-          <a href="#counselors" class="btn btn-outline btn-lg" style="padding: 1rem 2rem; font-size: 1.1rem; border-radius: var(--radius-full); background: white;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            Find a Counselor
-          </a>
-        </div>
-
-        <!-- Live Status Snippet -->
-        <div id="home-live-status" style="display: inline-flex; align-items: center; gap: 0.5rem; background: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem; color: var(--text-secondary); box-shadow: var(--shadow-sm);">
-           <div class="vr-loading-spinner" style="width: 14px; height: 14px; border-width: 2px;"></div> Checking counselor availability...
-        </div>
-      </div>
-    </section>
-
-    <!-- C. How It Works -->
-    <section class="section" style="background: #ffffff;">
-      <div class="container">
-        <div class="text-center animate-slide-up" style="margin-bottom: var(--space-2xl);">
-          <h2 style="font-size: 2rem; font-weight: 700;">How EmoSense Works</h2>
-          <p style="color: var(--text-secondary);">Getting help has never been easier or safer.</p>
-        </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-xl);">
-          <div class="card text-center" style="border: none; box-shadow: none;">
-            <div style="width: 60px; height: 60px; background: var(--primary-100); color: var(--primary-600); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto var(--space-md); font-size: 1.5rem; font-weight: bold;">1</div>
-            <h3>Quick Triage</h3>
-            <p style="color: var(--text-secondary);">Answer a few simple questions so we understand what you're going through.</p>
+      <!-- ═══ HERO ═══ -->
+      <section class="es-hero">
+        <div class="es-hero-content">
+          <div class="es-hero-badge">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Private & Anonymous
           </div>
-          <div class="card text-center" style="border: none; box-shadow: none;">
-            <div style="width: 60px; height: 60px; background: var(--primary-100); color: var(--primary-600); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto var(--space-md); font-size: 1.5rem; font-weight: bold;">2</div>
-            <h3>Smart Matching</h3>
-            <p style="color: var(--text-secondary);">Connect instantly with our AI or let us match you with the right counselor.</p>
-          </div>
-          <div class="card text-center" style="border: none; box-shadow: none;">
-            <div style="width: 60px; height: 60px; background: var(--primary-100); color: var(--primary-600); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto var(--space-md); font-size: 1.5rem; font-weight: bold;">3</div>
-            <h3>Start Healing</h3>
-            <p style="color: var(--text-secondary);">Chat securely and anonymously. Get the support you deserve on your terms.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- D. Trust & Safety Section -->
-    <section class="section" style="background: var(--gray-50);">
-      <div class="container" style="display: flex; align-items: center; gap: var(--space-3xl); flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 300px;">
-          <h2 style="font-size: 2rem; font-weight: 700; margin-bottom: var(--space-md);">Your Secret is Safe With Us</h2>
-          <p style="color: var(--text-secondary); margin-bottom: var(--space-lg); line-height: 1.6;">
-            We know privacy is the biggest barrier to getting help. EmoSense is built on a foundation of absolute anonymity and data protection.
+          <h1 class="es-hero-title">
+            You Don't Have To<br>Handle Everything <span class="es-gradient-text">Alone.</span>
+          </h1>
+          <p class="es-hero-sub">
+            Connect with trusted counsellors privately, securely, and instantly — whenever you need support. No judgment. No records. Just care.
           </p>
-          <ul style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 1rem;">
-            <li style="display: flex; align-items: center; gap: 10px;">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-500)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              <strong>100% Anonymous:</strong> No login or real name required.
-            </li>
-            <li style="display: flex; align-items: center; gap: 10px;">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-500)" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-              <strong>End-to-End Encryption:</strong> Your chats cannot be read by anyone else.
-            </li>
-            <li style="display: flex; align-items: center; gap: 10px;">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-500)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              <strong>Professional Boundaries:</strong> Counselors only see your chosen alias.
-            </li>
-          </ul>
-        </div>
-        <div style="flex: 1; min-width: 300px; display: flex; justify-content: center;">
-            <div style="background: white; padding: 2rem; border-radius: var(--radius-2xl); box-shadow: var(--shadow-lg); max-width: 350px;">
-                <h4 style="text-align: center; color: var(--gray-500); margin-bottom: 1rem;">Live Chat Preview</h4>
-                <div style="background: var(--gray-100); padding: 10px 15px; border-radius: 15px 15px 15px 0; margin-bottom: 10px; width: fit-content; max-width: 80%;">
-                    I'm feeling so overwhelmed with exams.
-                </div>
-                <div style="background: var(--primary-100); color: var(--primary-800); padding: 10px 15px; border-radius: 15px 15px 0 15px; margin-left: auto; width: fit-content; max-width: 80%;">
-                    I hear you. Exam season is incredibly tough. Let's break this down together. You are safe here.
-                </div>
+          <div class="es-hero-actions">
+            <a href="#chat" class="es-btn-primary">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Talk to AI Now
+            </a>
+            <a href="#counselors" class="es-btn-glass">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Find a Counselor
+            </a>
+          </div>
+          <div class="es-live-badge" id="home-live-status" style="margin-bottom:1.5rem;">
+            <div class="es-pulse-dot"></div>
+            <span>Checking availability...</span>
+          </div>
+          <div class="es-hero-stats" id="es-hero-stats">
+            <div class="es-stat-item">
+              <span class="es-stat-num" id="stat-helped">2,400+</span>
+              <span class="es-stat-label">Students Helped</span>
             </div>
+            <div class="es-stat-divider"></div>
+            <div class="es-stat-item">
+              <span class="es-stat-num">24/7</span>
+              <span class="es-stat-label">AI Available</span>
+            </div>
+            <div class="es-stat-divider"></div>
+            <div class="es-stat-item">
+              <span class="es-stat-num">&lt;5 min</span>
+              <span class="es-stat-label">Response Time</span>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
 
-    <!-- E. Counselor Preview Section -->
-    <section class="section">
-      <div class="container text-center">
-        <h2 style="font-size: 2rem; font-weight: 700; margin-bottom: var(--space-sm);">Meet Our Professionals</h2>
-        <p style="color: var(--text-secondary); margin-bottom: var(--space-xl);">Trained, empathetic, and ready to listen.</p>
-        <div style="display: flex; justify-content: center; gap: var(--space-lg); flex-wrap: wrap;">
-           <div class="card" style="width: 250px;">
-               <img src="/counselors/counselor-1.png" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 1rem; display: block;" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMSI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI1Ii8+PHBhdGggZD0iTTMgMjF2LTJhNyA3IDAgMCAxIDE0IDB2MiIvPjwvc3ZnPg=='" />
-               <h4>Tendai Moyo</h4>
-               <p style="font-size: 0.9rem; color: var(--text-muted);">Stress & Anxiety</p>
-           </div>
-           <div class="card" style="width: 250px;">
-               <img src="/counselors/counselor-2.png" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 1rem; display: block;" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMSI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI1Ii8+PHBhdGggZD0iTTMgMjF2LTJhNyA3IDAgMCAxIDE0IDB2MiIvPjwvc3ZnPg=='" />
-               <h4>Tatenda Chirwa</h4>
-               <p style="font-size: 0.9rem; color: var(--text-muted);">Relationships</p>
-           </div>
-           <div class="card" style="width: 250px;">
-               <img src="/counselors/counselor-3.png" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 1rem; display: block;" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMSI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI1Ii8+PHBhdGggZD0iTTMgMjF2LTJhNyA3IDAgMCAxIDE0IDB2MiIvPjwvc3ZnPg=='" />
-               <h4>Rutendo Mhaka</h4>
-               <p style="font-size: 0.9rem; color: var(--text-muted);">Career & Life Transitions</p>
-           </div>
+        <!-- Floating Glass Card (Desktop) -->
+        <div class="es-hero-visual">
+          <div class="es-glass-preview">
+            <div class="es-preview-header">
+              <div class="es-preview-dot green"></div>
+              <span>Live Session</span>
+            </div>
+            <div class="es-preview-chat">
+              <div class="es-preview-msg left">
+                <p>I'm feeling really overwhelmed with everything lately...</p>
+              </div>
+              <div class="es-preview-msg right">
+                <p>I hear you. That sounds incredibly difficult. You've taken a brave step by reaching out. Let's work through this together.</p>
+              </div>
+              <div class="es-preview-msg left">
+                <p>Thank you. I just didn't know who to talk to.</p>
+              </div>
+            </div>
+            <div class="es-preview-input">
+              <span>Type your message...</span>
+              <div class="es-send-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </div>
+            </div>
+          </div>
+          <!-- Floating badges -->
+          <div class="es-float-badge es-float-1">🔒 End-to-End Encrypted</div>
+          <div class="es-float-badge es-float-2">🧠 AI-Powered Insights</div>
+          <div class="es-float-badge es-float-3">💛 100% Anonymous</div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- F. AI Support Section -->
-    <section class="section" style="background: var(--primary-50);">
-      <div class="container text-center">
-        <h2 style="font-size: 2rem; font-weight: 700; margin-bottom: var(--space-sm);">24/7 AI Companion</h2>
-        <p style="color: var(--text-secondary); max-width: 600px; margin: 0 auto var(--space-lg);">
-          Can't sleep? Overwhelmed at 2 AM? Our AI understands nuances, detects your emotions, and guides you through evidence-based coping techniques like Box Breathing and Grounding.
-        </p>
-        <a href="#chat" class="btn btn-outline" style="background: white;">Try AI Chat</a>
-      </div>
-    </section>
-
-    <!-- G. Emergency Help Section -->
-    <section class="section" style="background: #fff5f5; border-top: 1px solid #fed7d7; border-bottom: 1px solid #fed7d7;">
-      <div class="container text-center">
-        <div style="width: 60px; height: 60px; background: var(--red-100); color: var(--red-600); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto var(--space-md);">
-           <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <!-- ═══ FEATURES ═══ -->
+      <section class="es-section">
+        <div class="es-container">
+          <div class="es-section-header">
+            <span class="es-tag">How It Works</span>
+            <h2>Getting help has never been<br><span class="es-gradient-text">easier or safer.</span></h2>
+          </div>
+          <div class="es-features-grid">
+            <div class="es-feature-card">
+              <div class="es-feature-icon" style="background:rgba(99,102,241,0.1);color:#6366f1;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <h3>Start a Conversation</h3>
+              <p>Chat anonymously with our AI companion or a real counselor. No login. No paperwork.</p>
+            </div>
+            <div class="es-feature-card">
+              <div class="es-feature-icon" style="background:rgba(16,185,129,0.1);color:#10b981;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <h3>Safe & Private</h3>
+              <p>End-to-end encryption. No data stored. Only your chosen alias is visible. Full anonymity guaranteed.</p>
+            </div>
+            <div class="es-feature-card">
+              <div class="es-feature-icon" style="background:rgba(245,158,11,0.1);color:#f59e0b;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+              </div>
+              <h3>Emotion Detection</h3>
+              <p>Our AI reads emotional cues in your messages and adjusts support in real-time to what you need most.</p>
+            </div>
+            <div class="es-feature-card">
+              <div class="es-feature-icon" style="background:rgba(236,72,153,0.1);color:#ec4899;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <h3>Smart Matching</h3>
+              <p>Get matched with the right counselor based on your needs, gender preference, and availability.</p>
+            </div>
+            <div class="es-feature-card">
+              <div class="es-feature-icon" style="background:rgba(59,130,246,0.1);color:#3b82f6;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.11 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              </div>
+              <h3>Voice & Video Calls</h3>
+              <p>Sometimes talking is easier. Connect via secure voice or video when you need a human connection.</p>
+            </div>
+            <div class="es-feature-card">
+              <div class="es-feature-icon" style="background:rgba(220,38,38,0.1);color:#dc2626;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <h3>SOS Emergency</h3>
+              <p>One-tap emergency button that instantly alerts counselors, campus security, and sends your location.</p>
+            </div>
+          </div>
         </div>
-        <h2 style="font-size: 2rem; font-weight: 700; color: var(--red-700); margin-bottom: var(--space-sm);">In Crisis? We're Here.</h2>
-        <p style="color: var(--red-600); max-width: 600px; margin: 0 auto var(--space-lg);">
-          If you are having thoughts of self-harm or suicide, please know that things can get better and help is available immediately. Use the SOS button located at the top right of your screen anywhere in the app to alert emergency responders.
-        </p>
-        <button class="btn btn-primary" onclick="window.location.hash='#emergency'" style="background: var(--red-600); border-color: var(--red-600);">Access Emergency Resources</button>
-      </div>
-    </section>
+      </section>
 
-    <!-- H. Call to Action (Bottom) -->
-    <section class="section">
-      <div class="container text-center">
-        <h2 style="font-size: 2.5rem; font-weight: 800; margin-bottom: var(--space-md);">Take the First Step</h2>
-        <p style="font-size: 1.2rem; color: var(--text-secondary); margin-bottom: var(--space-xl);">No pressure. No judgment. Just support.</p>
-        <a href="#triage" onclick="window.location.hash='#counselors'" class="btn btn-primary btn-lg" style="padding: 1rem 3rem; font-size: 1.2rem; border-radius: var(--radius-full);">Find Help Now</a>
-      </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-      <div class="container footer-inner">
-        <div class="footer-brand">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-600)" stroke-width="1.5"><path d="M12 2C9 2 7 4 7 6.5c0 1 .3 1.8.8 2.5C6.3 9.8 5 11.3 5 13c0 1.5.8 2.8 2 3.5-.2.5-.3 1-.3 1.5 0 2.2 1.8 4 4 4h2.6c2.2 0 4-1.8 4-4 0-.5-.1-1-.3-1.5 1.2-.7 2-2 2-3.5 0-1.7-1.3-3.2-2.8-3.9.5-.7.8-1.5.8-2.6C17 4 15 2 12 2z"/></svg>
-          EmoSense <span>– Emotion-Aware Digital Counseling</span>
+      <!-- ═══ COUNSELORS PREVIEW ═══ -->
+      <section class="es-section es-section-dark">
+        <div class="es-container">
+          <div class="es-section-header">
+            <span class="es-tag">Meet The Team</span>
+            <h2>Trusted Professionals<br><span class="es-gradient-text">Ready to Listen</span></h2>
+            <p class="es-section-sub">Trained, empathetic, and available when you need them most.</p>
+          </div>
+          <div class="es-counselors-grid" id="es-counselors-grid">
+            <!-- Filled dynamically -->
+          </div>
+          <div style="text-align:center;margin-top:2rem;">
+            <a href="#counselors" class="es-btn-glass" style="display:inline-flex;">View All Counselors</a>
+          </div>
         </div>
-        <div class="footer-disclaimer">
-          Designed for Midlands State University students. This is a supplementary tool and does not replace professional counseling services. If you are in crisis, please contact a professional counselor immediately.
-        </div>
-      </div>
-    </footer>
-  `;
+      </section>
 
-  // Fetch live counselor data
-  fetchLiveCounselorData();
+      <!-- ═══ DASHBOARD PREVIEW ═══ -->
+      <section class="es-section">
+        <div class="es-container">
+          <div class="es-dash-row">
+            <div class="es-dash-text">
+              <span class="es-tag">Your Space</span>
+              <h2>Everything You Need<br>In <span class="es-gradient-text">One Place</span></h2>
+              <p>Track your emotional wellbeing, access resources, and connect with counselors — all from a secure, private dashboard built just for you.</p>
+              <ul class="es-check-list">
+                <li><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Real-time mood tracking</li>
+                <li><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Secure chat history</li>
+                <li><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> AI coping exercises</li>
+                <li><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Emergency SOS at your fingertips</li>
+              </ul>
+              <a href="#chat" class="es-btn-primary" style="margin-top:1.5rem;display:inline-flex;">Try It Now</a>
+            </div>
+            <div class="es-dash-preview">
+              <div class="es-dash-card">
+                <div class="es-dash-card-header">
+                  <span>😊 Mood Today</span>
+                  <span class="es-tag-sm">Good</span>
+                </div>
+                <div class="es-mood-bar">
+                  <div class="es-mood-fill" style="width:72%;"></div>
+                </div>
+                <span style="font-size:0.7rem;color:var(--gray-400);">72% positive — better than yesterday</span>
+              </div>
+              <div class="es-dash-card">
+                <div class="es-dash-card-header">
+                  <span>💬 Recent Chats</span>
+                  <span class="es-tag-sm">3 Active</span>
+                </div>
+                <div class="es-mini-chat"><div class="es-mini-avatar">🧠</div><div><strong>AI Companion</strong><br><span>You're doing great. Remember the breathing...</span></div></div>
+                <div class="es-mini-chat"><div class="es-mini-avatar">👩‍⚕️</div><div><strong>Tatenda C.</strong><br><span>Let's continue from our last session...</span></div></div>
+              </div>
+              <div class="es-dash-card">
+                <div class="es-dash-card-header">
+                  <span>🔔 Notifications</span>
+                  <span class="es-tag-sm" style="background:rgba(220,38,38,0.1);color:#dc2626;">2 New</span>
+                </div>
+                <div class="es-notif-item">📅 Appointment reminder — Tomorrow 2PM</div>
+                <div class="es-notif-item">💛 Wellness check-in available</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ CRISIS ═══ -->
+      <section class="es-crisis-section">
+        <div class="es-container" style="text-align:center;">
+          <div class="es-crisis-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <h2>In Crisis? You're Not Alone.</h2>
+          <p>If you're having thoughts of self-harm or feeling unsafe, help is available right now.</p>
+          <div class="es-crisis-actions">
+            <a href="tel:999" class="es-crisis-btn">📞 Call Emergency (999)</a>
+            <a href="tel:+2634790652" class="es-crisis-btn">🆘 Befrienders Zim</a>
+            <button class="es-crisis-btn sos" onclick="document.getElementById('sos-fab')?.click()">🚨 Use SOS Button</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ CTA ═══ -->
+      <section class="es-cta-section">
+        <div class="es-container" style="text-align:center;">
+          <h2>Take the First Step.</h2>
+          <p>No pressure. No judgment. Just support.</p>
+          <a href="#counselors" class="es-btn-primary es-btn-xl">Find Help Now</a>
+        </div>
+      </section>
+
+      <!-- ═══ FOOTER ═══ -->
+      <footer class="es-footer">
+        <div class="es-container">
+          <div class="es-footer-grid">
+            <div class="es-footer-brand">
+              <div class="es-nav-brand" style="margin-bottom:0.75rem;">
+                <div class="es-brand-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C9 2 7 4 7 6.5c0 1 .3 1.8.8 2.5C6.3 9.8 5 11.3 5 13c0 1.5.8 2.8 2 3.5-.2.5-.3 1-.3 1.5 0 2.2 1.8 4 4 4h2.6c2.2 0 4-1.8 4-4 0-.5-.1-1-.3-1.5 1.2-.7 2-2 2-3.5 0-1.7-1.3-3.2-2.8-3.9.5-.7.8-1.5.8-2.6C17 4 15 2 12 2z"/></svg></div>
+                <span>EmoSense</span>
+              </div>
+              <p>Emotion-Aware Digital Counseling Platform for Midlands State University students.</p>
+            </div>
+            <div class="es-footer-col">
+              <h4>Platform</h4>
+              <a href="#chat">AI Chat</a>
+              <a href="#counselors">Counselors</a>
+              <a href="#resources">Resources</a>
+              <a href="#voice-rooms">Voice Rooms</a>
+            </div>
+            <div class="es-footer-col">
+              <h4>Support</h4>
+              <a href="#counselors">Get Help Now</a>
+              <a href="tel:999">Emergency (999)</a>
+              <a href="tel:+2634790652">Befrienders Zim</a>
+              <a href="#feedback">Give Feedback</a>
+            </div>
+            <div class="es-footer-col">
+              <h4>Legal</h4>
+              <a href="#privacy">Privacy Policy</a>
+              <a href="#terms">Terms of Service</a>
+              <a href="#data">Data Protection</a>
+              <a href="#faq">FAQs</a>
+            </div>
+          </div>
+          <div class="es-footer-bottom">
+            <p>&copy; ${new Date().getFullYear()} EmoSense — Midlands State University. This is a supplementary tool and does not replace professional counseling.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+    `;
+
+    fetchLiveCounselorData();
+    loadCounselorPreviews();
+    animateOnScroll();
 }
 
 async function fetchLiveCounselorData() {
-  const statusEl = document.getElementById('home-live-status');
-  if (!statusEl) return;
-  
-  try {
-    const res = await fetch('/api/counselors');
-    if (!res.ok) throw new Error();
-    const counselors = await res.json();
-    const onlineCount = counselors.filter(c => c.is_online).length;
-    
-    if (onlineCount > 0) {
-      statusEl.innerHTML = `<span style="color: #22c55e; font-size: 1.2rem; line-height: 1;">🟢</span> <strong>${onlineCount} counselor${onlineCount > 1 ? 's' : ''}</strong> available right now. Wait time < 5 mins.`;
-    } else {
-      statusEl.innerHTML = `<span style="color: #f59e0b; font-size: 1.2rem; line-height: 1;">🟡</span> AI Support available 24/7. Next human counselor at 08:00 AM.`;
+    const statusEl = document.getElementById('home-live-status');
+    if (!statusEl) return;
+    try {
+        const res = await fetch('/api/counselors');
+        if (!res.ok) throw new Error();
+        const counselors = await res.json();
+        const onlineCount = counselors.filter(c => c.is_online).length;
+        if (onlineCount > 0) {
+            statusEl.innerHTML = `<div class="es-pulse-dot live"></div><span><strong>${onlineCount}</strong> counselor${onlineCount > 1 ? 's' : ''} online now</span>`;
+        } else {
+            statusEl.innerHTML = `<div class="es-pulse-dot"></div><span>AI Support available 24/7</span>`;
+        }
+    } catch (err) {
+        statusEl.innerHTML = `<div class="es-pulse-dot"></div><span>AI Support 24/7</span>`;
     }
-  } catch (err) {
-    statusEl.innerHTML = `AI Support available 24/7`;
-  }
 }
 
-function renderFeatureCard(icon, title, description) {
-    return `
-    <div class="card">
-      <div class="card-icon">${icon}</div>
-      <h3>${title}</h3>
-      <p>${description}</p>
-    </div>
-  `;
+async function loadCounselorPreviews() {
+    const grid = document.getElementById('es-counselors-grid');
+    if (!grid) return;
+    try {
+        const res = await fetch('/api/counselors');
+        if (!res.ok) throw new Error();
+        const counselors = await res.json();
+        const shown = counselors.slice(0, 4);
+        grid.innerHTML = shown.map((c, i) => {
+            const imgIndex = i + 1;
+            const specialties = c.specialties || 'General Support';
+            return `
+            <div class="es-counselor-card">
+                <div class="es-counselor-status ${c.is_online ? 'online' : 'offline'}"></div>
+                <img src="/counselors/counselor-${imgIndex}.png" alt="${c.name}" onerror="this.style.display='none'" />
+                <h4>${c.name}</h4>
+                <p class="es-counselor-spec">${typeof specialties === 'string' ? specialties : specialties.join(', ')}</p>
+                <div class="es-counselor-meta">
+                    <span class="${c.is_online ? 'online' : ''}">${c.is_online ? '● Online' : '○ Offline'}</span>
+                    ${c.is_online ? '<span>&lt; 5 min response</span>' : ''}
+                </div>
+                <a href="#counselors" class="es-counselor-btn">${c.is_online ? 'Talk Now' : 'View Profile'}</a>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        grid.innerHTML = '<p style="color:var(--gray-400);grid-column:1/-1;text-align:center;">Unable to load counselors</p>';
+    }
+}
+
+
+
+function animateOnScroll() {
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('es-visible');
+            }
+        });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.es-feature-card, .es-counselor-card, .es-dash-card, .es-dash-text').forEach(el => {
+        el.classList.add('es-animate-in');
+        observer.observe(el);
+    });
 }

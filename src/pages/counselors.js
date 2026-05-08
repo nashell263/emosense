@@ -1,93 +1,88 @@
 /**
- * EmoSense Counselor Selection Page — v2
- * Triage-first entry → smart matching → queue management → live chat
+ * EmoSense Counselor Selection Page — v3
+ * Shows live counselor status + simplified triage → smart matching → live chat
  */
 
 import { apiGet, apiPost, getSocketUrl } from '../api.js';
 import { io } from 'socket.io-client';
 
 let currentSocket = null;
+let statusInterval = null;
 
 export function renderCounselors(container) {
     container.innerHTML = `
-    <div class="container" style="padding: var(--space-3xl) 0;">
-      <div class="text-center animate-slide-up" style="margin-bottom: var(--space-2xl);">
-        <span class="badge">Live Counseling</span>
-        <h1 style="font-size: 2.25rem; margin-bottom: var(--space-sm);">Support Triage</h1>
-        <p style="color: var(--text-secondary); max-width: 600px; margin: 0 auto;">
-          Complete this short intake so we can match you with the right counselor quickly and safely.
+    <div class="container" style="padding: 2rem 0 3rem;">
+      <div class="text-center animate-slide-up" style="margin-bottom: 2rem;">
+        <span style="display: inline-block; background: rgba(99,102,241,0.15); color: #818cf8; padding: 4px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.75rem;">Live Counseling</span>
+        <h1 style="font-size: 2rem; margin-bottom: 0.5rem; color: white;">Support Triage</h1>
+        <p style="color: rgba(255,255,255,0.5); max-width: 500px; margin: 0 auto; font-size: 0.9rem;">
+          See who's available and get matched with the right counselor.
         </p>
       </div>
 
-      <!-- Privacy & Consent Notice -->
-      <div class="animate-slide-up" style="max-width: 600px; margin: 0 auto var(--space-lg); background: var(--primary-50); padding: 1rem 1.5rem; border-radius: var(--radius-md); border-left: 4px solid var(--primary-500); font-size: 0.875rem; color: var(--text-secondary);">
-        <strong style="color: var(--primary-700);">🔒 Privacy Notice:</strong>
-        Your identity is anonymous. Counselors will only see a randomly generated alias. Chat data is encrypted and used only for support purposes. You may reveal your identity later if you choose to.
+      <!-- Live Counselor Status Cards -->
+      <div id="live-counselor-cards" style="max-width: 700px; margin: 0 auto 2rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: pulse-dot 2s infinite;"></span>
+          <span style="font-size: 0.85rem; color: rgba(255,255,255,0.6);">Live Counselor Status</span>
+        </div>
+        <div id="counselor-status-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
+          <div style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.3); font-size: 0.85rem;">Loading counselors...</div>
+        </div>
       </div>
 
-      <!-- Triage Form -->
-      <div id="triage-form-container" class="animate-slide-up-delay-1" style="max-width: 600px; margin: 0 auto; background: white; padding: 2rem; border-radius: var(--radius-lg); box-shadow: var(--shadow-md);">
+      <!-- Simplified Triage Form -->
+      <div id="triage-form-container" class="animate-slide-up-delay-1" style="max-width: 550px; margin: 0 auto; background: rgba(255,255,255,0.04); padding: 2rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(20px);">
+        
+        <div style="margin-bottom: 1.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <span style="font-size: 1.2rem;">🔒</span>
+            <span style="font-size: 0.8rem; color: rgba(255,255,255,0.5);">Your identity stays anonymous. Counselors only see a random alias.</span>
+          </div>
+        </div>
+
         <form id="triage-form">
-          <div class="form-group" style="margin-bottom: 1.5rem;">
-            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">What kind of help do you need?</label>
-            <select id="triage-issue" class="form-control" style="width: 100%; padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--gray-300);" required>
-              <option value="">Select an issue...</option>
-              <option value="stress">Academic Stress / Burnout</option>
-              <option value="anxiety">Anxiety / Overwhelm</option>
-              <option value="depression">Low Mood / Depression</option>
-              <option value="relationship">Relationship / Family</option>
-              <option value="financial">Financial Stress</option>
-              <option value="other">Other General Support</option>
+          <div style="margin-bottom: 1.5rem;">
+            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: white; font-size: 0.9rem;">What do you need help with?</label>
+            <select id="triage-issue" style="width: 100%; padding: 0.75rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: white; font-size: 0.9rem; font-family: inherit;" required>
+              <option value="" style="background: #1e293b;">Select an issue...</option>
+              <option value="stress" style="background: #1e293b;">Academic Stress / Burnout</option>
+              <option value="anxiety" style="background: #1e293b;">Anxiety / Overwhelm</option>
+              <option value="depression" style="background: #1e293b;">Low Mood / Depression</option>
+              <option value="relationship" style="background: #1e293b;">Relationship / Family</option>
+              <option value="financial" style="background: #1e293b;">Financial Stress</option>
+              <option value="other" style="background: #1e293b;">Other General Support</option>
             </select>
           </div>
 
-          <div class="form-group" style="margin-bottom: 1.5rem;">
-            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">How urgent is this? (1 = Not urgent, 5 = Immediate help needed)</label>
-            <input type="range" id="triage-urgency" min="1" max="5" value="3" style="width: 100%;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted);">
-              <span>1 — Low</span><span>2</span><span>3</span><span>4</span><span>5 — Crisis</span>
+          <div style="margin-bottom: 1.5rem;">
+            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: white; font-size: 0.9rem;">Counselor preference</label>
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.85rem; color: rgba(255,255,255,0.8); transition: all 0.2s;">
+                <input type="radio" name="triage-gender" value="" checked style="accent-color: #6366f1;"> No preference
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.85rem; color: rgba(255,255,255,0.8); transition: all 0.2s;">
+                <input type="radio" name="triage-gender" value="female" style="accent-color: #6366f1;"> Female
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.85rem; color: rgba(255,255,255,0.8); transition: all 0.2s;">
+                <input type="radio" name="triage-gender" value="male" style="accent-color: #6366f1;"> Male
+              </label>
             </div>
           </div>
 
-          <div class="form-group" style="margin-bottom: 1.5rem;">
-            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Do you feel safe right now?</label>
-            <div style="display: flex; gap: 1rem;">
-              <label><input type="radio" name="triage-safe" value="yes" checked> Yes</label>
-              <label style="color: var(--red-600);"><input type="radio" name="triage-safe" value="no"> No, I need urgent help</label>
-            </div>
+          <div style="margin-bottom: 1.5rem;">
+            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: white; font-size: 0.9rem;">Brief description <span style="color: rgba(255,255,255,0.3); font-weight: 400;">(optional)</span></label>
+            <textarea id="triage-description" placeholder="e.g. I've been struggling with exam pressure..." rows="2" style="width: 100%; padding: 0.75rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: white; font-size: 0.9rem; font-family: inherit; resize: vertical;"></textarea>
           </div>
 
-          <div class="form-group" style="margin-bottom: 1.5rem;">
-            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Preferred communication</label>
-            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-              <label><input type="radio" name="triage-mode" value="chat" checked> 💬 Text Chat</label>
-              <label><input type="radio" name="triage-mode" value="voice"> 🎙️ Voice</label>
-              <label><input type="radio" name="triage-mode" value="video"> 📹 Video</label>
-            </div>
-          </div>
-
-          <div class="form-group" style="margin-bottom: 1.5rem;">
-            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Counselor gender preference (optional)</label>
-            <div style="display: flex; gap: 1rem;">
-              <label><input type="radio" name="triage-gender" value=""> No preference</label>
-              <label><input type="radio" name="triage-gender" value="female"> Female</label>
-              <label><input type="radio" name="triage-gender" value="male"> Male</label>
-            </div>
-          </div>
-
-          <div class="form-group" style="margin-bottom: 1.5rem;">
-            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Briefly describe what's going on (optional)</label>
-            <textarea id="triage-description" class="form-control" placeholder="e.g. I've been struggling with exam pressure and can't sleep..." rows="3" style="width: 100%; padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--gray-300);"></textarea>
-          </div>
-
-          <div class="form-group" style="margin-bottom: 1.5rem;">
-            <label style="display: flex; align-items: center; gap: 0.5rem;">
-              <input type="checkbox" id="triage-consent" required>
-              <span style="font-size: 0.85rem;">I understand this is supplementary support and consent to anonymous data use for improving services.</span>
+          <div style="margin-bottom: 1.25rem;">
+            <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+              <input type="checkbox" id="triage-consent" required style="accent-color: #6366f1; margin-top: 3px;">
+              <span style="font-size: 0.8rem; color: rgba(255,255,255,0.5);">I consent to anonymous support and data use for improving services.</span>
             </label>
           </div>
 
-          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem; font-size: 1.1rem;">Find My Counselor</button>
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 1rem; background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; border-radius: 12px; color: white; font-weight: 600; cursor: pointer;">Find My Counselor</button>
         </form>
       </div>
 
@@ -96,8 +91,8 @@ export function renderCounselors(container) {
 
       <!-- Match Results -->
       <div id="match-results" style="display: none; max-width: 800px; margin: 0 auto;">
-         <h2 style="text-align: center; margin-bottom: 1rem;">Available Counselors</h2>
-         <p style="text-align: center; color: var(--text-muted); margin-bottom: 2rem;">Matched based on your needs, urgency, and counselor availability.</p>
+         <h2 style="text-align: center; margin-bottom: 0.5rem; color: white;">Available Counselors</h2>
+         <p style="text-align: center; color: rgba(255,255,255,0.4); margin-bottom: 2rem; font-size: 0.9rem;">Matched based on your needs and counselor availability.</p>
          <div id="counselor-grid" class="counselor-grid"></div>
       </div>
 
@@ -106,21 +101,15 @@ export function renderCounselors(container) {
     </div>
   `;
 
+    // Load live counselor statuses
+    loadCounselorStatuses();
+    statusInterval = setInterval(loadCounselorStatuses, 10000); // Refresh every 10s
+
     document.getElementById('triage-form').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const isSafe = document.querySelector('input[name="triage-safe"]:checked').value === 'yes';
 
-        if (!isSafe) {
-            document.getElementById('triage-form-container').innerHTML = `
-                <div style="text-align: center; color: var(--red-600);">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🚨</div>
-                    <h2>Emergency Support Activated</h2>
-                    <p>Your safety is our top priority. We are routing you to emergency support immediately.</p>
-                    <button class="btn btn-primary" onclick="window.location.hash='#emergency'" style="background: var(--red-600); border-color: var(--red-600); margin-top: 1rem;">Go to Emergency Support</button>
-                    <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-secondary);">You can also call: <strong>999 / 112</strong> or <strong>Befrienders Zimbabwe: +263 4 790 652</strong></p>
-                </div>
-            `;
-        }
+        // Clear status polling
+        if (statusInterval) clearInterval(statusInterval);
 
         const submitBtn = e.target.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
@@ -129,11 +118,11 @@ export function renderCounselors(container) {
         try {
             const result = await apiPost('/api/triage/submit', {
                 issueType: document.getElementById('triage-issue').value,
-                urgency: document.getElementById('triage-urgency').value,
-                isSafe,
+                urgency: 3,
+                isSafe: true,
                 isAnonymous: true,
                 preferredGender: document.querySelector('input[name="triage-gender"]:checked')?.value || '',
-                preferredMode: document.querySelector('input[name="triage-mode"]:checked')?.value || 'chat',
+                preferredMode: 'chat',
                 description: document.getElementById('triage-description')?.value || ''
             });
 
@@ -150,24 +139,131 @@ export function renderCounselors(container) {
             alert('Error: ' + err.message);
         }
     });
+
+    // Check for SOS redirect — if a counselor accepted the student's SOS, auto-start live chat
+    const sosRedirect = sessionStorage.getItem('sos_redirect');
+    if (sosRedirect) {
+        sessionStorage.removeItem('sos_redirect');
+        try {
+            const data = JSON.parse(sosRedirect);
+            if (data.sessionId) {
+                // Hide triage form, show live chat
+                document.getElementById('triage-form-container').style.display = 'none';
+                document.getElementById('live-counselor-cards').style.display = 'none';
+                if (statusInterval) clearInterval(statusInterval);
+                renderLiveChat(container, {
+                    sessionId: data.sessionId,
+                    alias: data.alias || 'Anonymous',
+                    counselorId: data.counselorId,
+                    counselorName: data.counselorName || 'Counselor'
+                });
+            }
+        } catch(e) {
+            console.error('SOS redirect parse error:', e);
+        }
+    }
+}
+
+async function loadCounselorStatuses() {
+    try {
+        const data = await apiGet('/api/counselors');
+        const grid = document.getElementById('counselor-status-grid');
+        if (!grid) return;
+
+        const counselors = data.counselors || data || [];
+        if (counselors.length === 0) {
+            grid.innerHTML = '<div style="text-align: center; padding: 1rem; color: rgba(255,255,255,0.3); grid-column: 1/-1;">No counselors registered.</div>';
+            return;
+        }
+
+        // Map specializations to issue tags
+        const specIssueMap = {
+            'stress': ['stress', 'anxiety', 'academic', 'burnout'],
+            'anxiety': ['anxiety', 'stress', 'worry', 'panic'],
+            'relationship': ['relationship', 'family', 'interpersonal'],
+            'financial': ['financial', 'career', 'money', 'life'],
+            'depression': ['depression', 'mood', 'mental', 'life']
+        };
+
+        grid.innerHTML = counselors.map(c => {
+            const isOnline = c.is_online === 1;
+            const status = c.status || (isOnline ? 'available' : 'offline');
+            const statusColor = status === 'available' ? '#22c55e' : status === 'busy' ? '#f59e0b' : status === 'break' ? '#94a3b8' : '#6b7280';
+            const statusLabel = status === 'available' ? 'Online' : status === 'busy' ? 'Busy' : status === 'break' ? 'On Break' : 'Offline';
+            const statusDot = isOnline ? (status === 'available' ? '🟢' : status === 'busy' ? '🟡' : '⚪') : '⚫';
+            const photo = c.photo || `/counselors/counselor-${c.id}.png`;
+            const spec = (c.specialization || '').toLowerCase();
+            
+            // Find which issues this counselor handles
+            const handledIssues = [];
+            for (const [issue, keywords] of Object.entries(specIssueMap)) {
+                if (keywords.some(kw => spec.includes(kw))) handledIssues.push(issue);
+            }
+            if (handledIssues.length === 0) handledIssues.push('other');
+
+            const issueLabels = { stress: '📚 Stress', anxiety: '😰 Anxiety', depression: '💙 Mood', relationship: '❤️ Relationships', financial: '💰 Financial', other: '🌟 General' };
+
+            return `
+            <div class="counselor-status-card" data-issues="${handledIssues.join(',')}" data-gender="${c.gender}" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 1.25rem; text-align: center; transition: all 0.3s; ${isOnline && status === 'available' ? 'border-color: rgba(34,197,94,0.3); box-shadow: 0 0 20px rgba(34,197,94,0.05);' : ''}">
+              <div style="position: relative; display: inline-block; margin-bottom: 0.75rem;">
+                <img src="${photo}" alt="${c.name}" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid ${statusColor};" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM2MzY2ZjEiIHN0cm9rZS13aWR0aD0iMSI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI1Ii8+PHBhdGggZD0iTTMgMjF2LTJhNyA3IDAgMCAxIDE0IDB2MiIvPjwvc3ZnPg=='" />
+                <span style="position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; border-radius: 50%; background: ${statusColor}; border: 2px solid #0f172a;"></span>
+              </div>
+              <div style="font-weight: 600; font-size: 0.9rem; color: white; margin-bottom: 2px;">${c.name}</div>
+              <div style="font-size: 0.72rem; color: rgba(255,255,255,0.4); margin-bottom: 0.5rem;">${c.specialization || 'General Counselor'}</div>
+              <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-bottom: 0.5rem;">
+                ${handledIssues.map(issue => `<span style="font-size: 0.6rem; padding: 2px 6px; border-radius: 8px; background: rgba(99,102,241,0.1); color: #a5b4fc;">${issueLabels[issue] || issue}</span>`).join('')}
+              </div>
+              <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; padding: 3px 10px; border-radius: 20px; background: ${isOnline ? `rgba(${status === 'available' ? '34,197,94' : status === 'busy' ? '245,158,11' : '148,163,184'},0.12)` : 'rgba(107,114,128,0.12)'}; color: ${statusColor}; font-weight: 600;">
+                ${statusDot} ${statusLabel}
+              </span>
+            </div>`;
+        }).join('');
+
+        // Set up issue-change highlighting
+        setupIssueHighlight();
+    } catch (err) {
+        console.error('Failed to load counselor statuses:', err);
+    }
+}
+
+function setupIssueHighlight() {
+    const issueSelect = document.getElementById('triage-issue');
+    if (!issueSelect) return;
+    
+    issueSelect.addEventListener('change', () => {
+        const selectedIssue = issueSelect.value;
+        document.querySelectorAll('.counselor-status-card').forEach(card => {
+            const issues = (card.dataset.issues || '').split(',');
+            if (selectedIssue && issues.includes(selectedIssue)) {
+                card.style.borderColor = 'rgba(99,102,241,0.5)';
+                card.style.boxShadow = '0 0 20px rgba(99,102,241,0.15)';
+                card.style.transform = 'scale(1.03)';
+            } else {
+                card.style.borderColor = 'rgba(255,255,255,0.08)';
+                card.style.boxShadow = 'none';
+                card.style.transform = 'scale(1)';
+            }
+        });
+    });
 }
 
 function showNoCounselors(pageContainer, triageResult) {
     const el = document.getElementById('no-counselors');
     el.style.display = 'block';
     el.innerHTML = `
-        <div style="background: white; padding: 2rem; border-radius: var(--radius-lg); box-shadow: var(--shadow-md); text-align: center;">
+        <div style="background: rgba(255,255,255,0.04); padding: 2rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); text-align: center;">
             <div style="font-size: 3rem; margin-bottom: 1rem;">⏳</div>
-            <h2>No Counselors Available Right Now</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">All counselors are currently offline or busy. Here's what you can do:</p>
-            <div style="display: grid; gap: 1rem; text-align: left;">
-                <a href="#chat" class="btn btn-primary" style="width: 100%; justify-content: center;">💬 Chat with AI Support (Available 24/7)</a>
-                <a href="#resources" class="btn btn-outline" style="width: 100%; justify-content: center;">📚 Browse Self-Help Resources</a>
-                <a href="#voice-rooms" class="btn btn-outline" style="width: 100%; justify-content: center;">🎙️ Join a Safe Space Voice Room</a>
+            <h2 style="color: white; margin-bottom: 0.5rem;">No Counselors Available</h2>
+            <p style="color: rgba(255,255,255,0.5); margin-bottom: 1.5rem;">All counselors are currently offline or busy. Here's what you can do:</p>
+            <div style="display: grid; gap: 0.75rem; text-align: left;">
+                <a href="#chat" class="btn btn-primary" style="width: 100%; justify-content: center;">💬 Chat with AI Support (24/7)</a>
+                <a href="#resources" class="btn" style="width: 100%; justify-content: center; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: white;">📚 Browse Self-Help Resources</a>
+                <a href="#voice-rooms" class="btn" style="width: 100%; justify-content: center; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: white;">🎙️ Join a Safe Space Voice Room</a>
             </div>
-            <div style="margin-top: 1.5rem; padding: 1rem; background: var(--red-50); border-radius: var(--radius-md);">
-                <strong style="color: var(--red-700);">Crisis?</strong>
-                <p style="font-size: 0.85rem; color: var(--red-600); margin: 0.25rem 0 0;">MSU Counseling: Student Affairs | Emergency: 999/112 | Befrienders: +263 4 790 652</p>
+            <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 12px;">
+                <strong style="color: #f87171;">Crisis?</strong>
+                <p style="font-size: 0.85rem; color: rgba(255,255,255,0.5); margin: 0.25rem 0 0;">MSU Counseling: Student Affairs | Emergency: 999/112 | Befrienders: +263 4 790 652</p>
             </div>
         </div>
     `;
@@ -175,16 +271,17 @@ function showNoCounselors(pageContainer, triageResult) {
 
 function showMatchResults(pageContainer, triageResult) {
     document.getElementById('match-results').style.display = 'block';
+    document.getElementById('live-counselor-cards').style.display = 'none';
 
     // Show queue info
     const queueEl = document.getElementById('queue-status');
     if (triageResult.queue) {
         queueEl.style.display = 'block';
         queueEl.innerHTML = `
-            <div style="background: var(--primary-50); padding: 1rem 1.5rem; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                <div><strong>Your alias:</strong> ${triageResult.alias}</div>
-                <div><strong>Priority:</strong> ${'🔴'.repeat(Math.min(5, triageResult.priority))}${'⚪'.repeat(5 - Math.min(5, triageResult.priority))}</div>
-                <div><strong>Est. wait:</strong> ~${triageResult.queue.estimatedWaitMinutes} min</div>
+            <div style="background: rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.15); padding: 1rem 1.5rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div style="color: white;"><strong>Your alias:</strong> ${triageResult.alias}</div>
+                <div style="color: white;"><strong>Priority:</strong> ${'🔴'.repeat(Math.min(5, triageResult.priority))}${'⚪'.repeat(5 - Math.min(5, triageResult.priority))}</div>
+                <div style="color: white;"><strong>Est. wait:</strong> ~${triageResult.queue.estimatedWaitMinutes} min</div>
             </div>
         `;
     }
@@ -193,22 +290,22 @@ function showMatchResults(pageContainer, triageResult) {
     const counselors = triageResult.availableCounselors || [];
 
     if (counselors.length === 0) {
-        grid.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No matching counselors found.</div>';
+        grid.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.4); padding: 2rem;">No matching counselors found.</div>';
         return;
     }
 
     grid.innerHTML = counselors.map((c, i) => `
-      <div class="counselor-card" data-id="${c.id}" style="${i === 0 ? 'border: 2px solid var(--primary-500); box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);' : ''} position: relative;">
-        ${i === 0 ? '<div style="position: absolute; top: -12px; right: -12px; background: var(--primary-600); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: bold;">Best Match</div>' : ''}
+      <div class="counselor-card" data-id="${c.id}" style="${i === 0 ? 'border: 2px solid #6366f1; box-shadow: 0 0 20px rgba(99,102,241,0.2);' : ''} position: relative; background: rgba(255,255,255,0.04); border-radius: 16px;">
+        ${i === 0 ? '<div style="position: absolute; top: -12px; right: -12px; background: linear-gradient(135deg,#6366f1,#8b5cf6); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: bold;">Best Match</div>' : ''}
         <div class="counselor-card-photo">
-          <img src="/counselors/counselor-${(c.id % 3) + 1}.png" alt="${c.name}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMSI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI1Ii8+PHBhdGggZD0iTTMgMjF2LTJhNyA3IDAgMCAxIDE0IDB2MiIvPjwvc3ZnPg=='" />
+          <img src="${c.photo || '/counselors/counselor-1.png'}" alt="${c.name}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM2MzY2ZjEiIHN0cm9rZS13aWR0aD0iMSI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI1Ii8+PHBhdGggZD0iTTMgMjF2LTJhNyA3IDAgMCAxIDE0IDB2MiIvPjwvc3ZnPg=='" />
           <span class="counselor-status online">🟢 Online</span>
         </div>
         <div class="counselor-card-body">
           <h3>${c.name}</h3>
           <p class="counselor-specialization">${c.specialization}</p>
-          ${c.matchScore ? `<div style="font-size: 0.75rem; color: var(--primary-600); margin-bottom: 0.5rem;">Match score: ${Math.min(100, Math.max(0, c.matchScore))}%</div>` : ''}
-          <button class="btn btn-primary btn-start-chat" data-id="${c.id}" data-name="${c.name}" data-session="${triageResult.sessionId}" data-alias="${triageResult.alias}" style="width: 100%; margin-top: 0.5rem;">
+          ${c.matchScore ? `<div style="font-size: 0.75rem; color: #818cf8; margin-bottom: 0.5rem;">Match score: ${Math.min(100, Math.max(0, c.matchScore))}%</div>` : ''}
+          <button class="btn btn-primary btn-start-chat" data-id="${c.id}" data-name="${c.name}" data-session="${triageResult.sessionId}" data-alias="${triageResult.alias}" style="width: 100%; margin-top: 0.5rem; background: linear-gradient(135deg,#6366f1,#8b5cf6); border: none; border-radius: 10px;">
             Start Chat
           </button>
         </div>
@@ -229,6 +326,7 @@ function showMatchResults(pageContainer, triageResult) {
 
 function renderLiveChat(container, { sessionId, alias, counselorId, counselorName }) {
     if (currentSocket) currentSocket.disconnect();
+    if (statusInterval) clearInterval(statusInterval);
     currentSocket = io(getSocketUrl());
 
     container.innerHTML = `
@@ -236,25 +334,25 @@ function renderLiveChat(container, { sessionId, alias, counselorId, counselorNam
       <div class="live-chat-main">
         <div class="live-chat-header">
           <div style="display: flex; align-items: center; gap: var(--space-md);">
-            <button class="btn-back" id="live-chat-back">← Back</button>
+            <button class="btn-back" id="live-chat-back" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: white; padding: 6px 12px; border-radius: 8px; cursor: pointer;">← Back</button>
             <div>
-              <h2>Chat with ${counselorName}</h2>
-              <p style="font-size: 0.75rem; color: var(--text-muted);">You are: <strong>${alias}</strong> (anonymous)</p>
+              <h2 style="color: white;">Chat with ${counselorName}</h2>
+              <p style="font-size: 0.75rem; color: rgba(255,255,255,0.4);">You are: <strong>${alias}</strong> (anonymous)</p>
             </div>
           </div>
-          <div class="live-chat-status" id="live-chat-status">
+          <div class="live-chat-status" id="live-chat-status" style="color: rgba(255,255,255,0.5); font-size: 0.85rem;">
             <span class="status-dot waiting"></span> Waiting for counselor...
           </div>
         </div>
 
-        <div class="live-chat-messages" id="live-chat-messages">
+        <div class="live-chat-messages" id="live-chat-messages" style="background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06);">
           <div class="system-message">
             <p>🔒 Your identity is completely anonymous. The counselor only sees your alias: <strong>${alias}</strong></p>
             <p>Waiting for ${counselorName} to accept your chat request...</p>
           </div>
         </div>
 
-        <div class="live-chat-input-area" id="live-chat-input-area" style="display: none;">
+        <div class="live-chat-input-area" id="live-chat-input-area" style="display: none; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-top: none; padding: 0.75rem; border-radius: 0 0 12px 12px;">
           <div class="chat-input-wrapper">
             <input type="text" class="chat-input" id="live-chat-input" placeholder="Type your message..." autocomplete="off" />
             <button class="chat-send-btn" id="live-chat-send">
@@ -262,8 +360,8 @@ function renderLiveChat(container, { sessionId, alias, counselorId, counselorNam
             </button>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-sm);">
-            <span style="font-size: 0.6875rem; color: var(--text-muted);">Your identity is protected.</span>
-            <button class="btn btn-sm" style="background: var(--red-50); color: var(--red-600); border: 1px solid var(--red-100);" id="end-session-btn">End Chat</button>
+            <span style="font-size: 0.6875rem; color: rgba(255,255,255,0.3);">Your identity is protected.</span>
+            <button class="btn btn-sm" style="background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.2); border-radius: 8px;" id="end-session-btn">End Chat</button>
           </div>
         </div>
       </div>
@@ -279,121 +377,56 @@ function renderLiveChat(container, { sessionId, alias, counselorId, counselorNam
     const sendBtn = document.getElementById('live-chat-send');
     const statusEl = document.getElementById('live-chat-status');
 
-    socket.on('chat-accepted', () => {
-        statusEl.innerHTML = '<span class="status-dot active"></span> Connected';
-        inputArea.style.display = 'block';
-        appendSystemMessage(messagesEl, `✅ ${counselorName} has joined the chat. You can start talking now.`);
-        input.focus();
+    function addMessage(text, sender) {
+        const div = document.createElement('div');
+        div.className = `live-msg ${sender}`;
+        div.innerHTML = `
+            <div class="live-msg-bubble ${sender}">${text}</div>
+            <div class="live-msg-meta">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+        `;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function sendMsg() {
+        const text = input.value.trim();
+        if (!text) return;
+        addMessage(text, 'student');
+        socket.emit('student-message', { sessionId, message: text });
+        input.value = '';
+    }
+
+    sendBtn.addEventListener('click', sendMsg);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
     });
 
-    socket.on('new-message', (data) => {
-        if (data.sessionId === sessionId) {
-            appendLiveMessage(messagesEl, data.senderType, data.content, data.timestamp);
-        }
+    socket.on('chat-accepted', (data) => {
+        statusEl.innerHTML = '<span class="status-dot online"></span> Connected';
+        statusEl.style.color = '#22c55e';
+        inputArea.style.display = 'block';
+        addMessage(`${counselorName} has joined the chat. Feel free to share what's on your mind.`, 'system');
+    });
+
+    socket.on('counselor-message', (data) => {
+        addMessage(data.message, 'counselor');
     });
 
     socket.on('session-ended', () => {
-        statusEl.innerHTML = '<span class="status-dot ended"></span> Session ended';
-        inputArea.style.display = 'none';
-        appendSystemMessage(messagesEl, '🏁 This session has ended. Thank you for reaching out.');
-        showFeedbackPrompt(messagesEl, sessionId, 'counselor');
+        addMessage('This session has ended. Thank you for reaching out. 💚', 'system');
+        input.disabled = true;
+        sendBtn.disabled = true;
     });
 
-    const sendMessage = () => {
-        const text = input.value.trim();
-        if (!text) return;
-        socket.emit('send-message', { sessionId, senderType: 'student', content: text });
-        input.value = '';
-    };
-
-    sendBtn.addEventListener('click', sendMessage);
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
-
-    document.getElementById('end-session-btn').addEventListener('click', () => {
-        if (confirm('Are you sure you want to end this session?')) {
-            socket.emit('end-session', { sessionId });
-        }
+    document.getElementById('end-session-btn')?.addEventListener('click', () => {
+        socket.emit('end-session', { sessionId });
+        addMessage('You ended the session. Take care! 💚', 'system');
+        input.disabled = true;
+        sendBtn.disabled = true;
     });
 
-    document.getElementById('live-chat-back').addEventListener('click', () => {
+    document.getElementById('live-chat-back')?.addEventListener('click', () => {
         socket.disconnect();
         renderCounselors(container);
-    });
-}
-
-function appendLiveMessage(container, senderType, content, timestamp) {
-    const div = document.createElement('div');
-    div.className = `live-msg ${senderType}`;
-    const time = new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    div.innerHTML = `
-    <div class="live-msg-bubble ${senderType}">${content}</div>
-    <div class="live-msg-meta">${senderType === 'student' ? 'You' : 'Counselor'} · ${time}</div>
-  `;
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
-}
-
-function appendSystemMessage(container, text) {
-    const div = document.createElement('div');
-    div.className = 'system-message';
-    div.innerHTML = `<p>${text}</p>`;
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
-}
-
-function showFeedbackPrompt(container, sessionId, type) {
-    const div = document.createElement('div');
-    div.className = 'feedback-prompt';
-    div.innerHTML = `
-    <h4>How was your experience?</h4>
-    <div class="feedback-stars" style="margin-bottom: 1rem;">
-      ${[1, 2, 3, 4, 5].map(i => `<button class="star-btn" data-rating="${i}" style="font-size: 1.5rem; border: none; background: none; cursor: pointer; opacity: 0.3;">⭐</button>`).join('')}
-    </div>
-
-    <div style="margin-bottom: 1rem;">
-       <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem;">How do you feel after this session?</label>
-       <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;" id="outcome-btns">
-            <button class="btn btn-sm btn-outline fb-outcome" data-outcome="better">😊 Better</button>
-            <button class="btn btn-sm btn-outline fb-outcome" data-outcome="slightly_better">🙂 Slightly better</button>
-            <button class="btn btn-sm btn-outline fb-outcome" data-outcome="no_change">😐 No change</button>
-            <button class="btn btn-sm btn-outline fb-outcome" data-outcome="worse">😔 Worse</button>
-       </div>
-    </div>
-
-    <textarea id="feedback-comment" class="form-control" placeholder="Any additional comments? (optional)" rows="2" style="width: 100%; margin-bottom: 1rem;"></textarea>
-    <button class="btn btn-primary" id="submit-feedback" style="width: 100%;">Submit Feedback</button>
-  `;
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
-
-    let selectedRating = 0;
-    let selectedOutcome = '';
-
-    div.querySelectorAll('.star-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            selectedRating = parseInt(btn.dataset.rating);
-            div.querySelectorAll('.star-btn').forEach((b, i) => { b.style.opacity = i < selectedRating ? '1' : '0.3'; });
-        });
-    });
-
-    div.querySelectorAll('.fb-outcome').forEach(btn => {
-        btn.addEventListener('click', () => {
-            div.querySelectorAll('.fb-outcome').forEach(b => { b.classList.remove('btn-primary'); b.classList.add('btn-outline'); });
-            btn.classList.remove('btn-outline'); btn.classList.add('btn-primary');
-            selectedOutcome = btn.dataset.outcome;
-        });
-    });
-
-    document.getElementById('submit-feedback').addEventListener('click', async () => {
-        if (selectedRating === 0) return alert('Please select a rating');
-        try {
-            await apiPost('/api/feedback', {
-                sessionType: type, sessionId, rating: selectedRating,
-                category: 'counselor', helpful: selectedRating >= 4,
-                comment: document.getElementById('feedback-comment').value.trim(),
-                emotional_outcome: selectedOutcome
-            });
-            div.innerHTML = `<div style="text-align: center; padding: 1rem;"><div style="font-size: 2rem; margin-bottom: 0.5rem;">✅</div><h4 style="color: var(--primary-700);">Thank you for your feedback!</h4></div>`;
-        } catch (err) { alert('Failed to submit feedback.'); }
     });
 }

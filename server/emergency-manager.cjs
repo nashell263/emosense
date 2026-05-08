@@ -15,6 +15,10 @@ let vonageClient = null;
 let atSms = null;
 let activeSmsProvider = 'none';
 
+// Email
+let emailTransporter = null;
+let adminEmail = null;
+
 let vonagePhoneNumber = null;
 let adminPhoneNumber = null;
 
@@ -33,7 +37,7 @@ function init(io, config = {}) {
         console.log('✅ EasySendSMS initialized — Real SMS enabled');
     }
 
-    // 2. Try Twilio
+    // 2. Try Twilio (SMS only — voice not available in Zimbabwe)
     if (activeSmsProvider === 'none') {
         const twilioSid = config.twilioSid || process.env.TWILIO_ACCOUNT_SID;
         const twilioToken = config.twilioToken || process.env.TWILIO_AUTH_TOKEN;
@@ -44,7 +48,7 @@ function init(io, config = {}) {
                 const twilio = require('twilio');
                 twilioClient = twilio(twilioSid, twilioToken);
                 activeSmsProvider = 'twilio';
-                console.log('✅ Twilio initialized — Real SMS & Voice calls enabled');
+                console.log('✅ Twilio initialized — SMS enabled');
             } catch (err) {
                 console.log('⚠️ Twilio init failed:', err.message);
             }
@@ -89,9 +93,27 @@ function init(io, config = {}) {
     if (activeSmsProvider !== 'none') {
         console.log(`   📱 Alert target: ${adminPhoneNumber} (via ${activeSmsProvider})`);
     } else {
-        console.log("⚠️ No SMS provider configured — SMS/calls will be logged to console only.");
-        console.log("   Set EASYSEND_API_KEY, TWILIO_ACCOUNT_SID, VONAGE_API_KEY, or AT_API_KEY in .env.");
+        console.log("⚠️ No SMS provider configured — SMS will be logged to console only.");
     }
+
+    // Email setup (Nodemailer with Gmail SMTP)
+    adminEmail = config.adminEmail || process.env.ADMIN_EMAIL;
+    const emailUser = config.emailUser || process.env.EMAIL_USER;
+    const emailPass = config.emailPass || process.env.EMAIL_PASS;
+    if (emailUser && emailPass && emailUser !== 'your_email_here') {
+        try {
+            const nodemailer = require('nodemailer');
+            emailTransporter = nodemailer.createTransport({
+                service: 'gmail',
+                auth: { user: emailUser, pass: emailPass }
+            });
+            console.log(`✅ Email alerts initialized (${emailUser})`);
+        } catch(e) { console.log('⚠️ Email init skipped:', e.message); }
+    } else {
+        console.log('⚠️ Email alerts not configured — set EMAIL_USER and EMAIL_PASS in .env');
+    }
+
+    console.log(`   📱 WhatsApp alerts: ✅ via wa.me link (supervisor: ${adminPhoneNumber})`);
 }
 
 /**
@@ -157,45 +179,37 @@ async function sendSMS(targetPhone, messageBody) {
 }
 
 /**
- * Make a voice call via Twilio or Vonage with text-to-speech
+ * Send WhatsApp alert via wa.me link + SMS callback request
+ * Returns a wa.me URL for dashboard auto-open
  */
-async function makeVoiceCall(targetPhone, spokenMessage) {
-    const phone = targetPhone.startsWith('+') ? targetPhone : '+' + targetPhone;
+function getWhatsAppAlertUrl(alert) {
+    const phone = (adminPhoneNumber || '').replace('+', '');
+    const msg = encodeURIComponent(
+        `🚨 *EmoSense SOS EMERGENCY*\n\n` +
+        `Student: ${alert.student_alias}\n` +
+        `Severity: ${(alert.severity || 'high').toUpperCase()}\n` +
+        `Message: ${alert.trigger_message || alert.quick_message || 'SOS activated'}\n` +
+        `Time: ${new Date().toLocaleTimeString()}\n` +
+        `${alert.location_address ? 'Location: ' + alert.location_address : ''}\n\n` +
+        `⚠️ STUDENT IN DANGER — Please respond immediately!`
+    );
+    return `https://wa.me/${phone}?text=${msg}`;
+}
 
-    // Try Twilio first
-    if (twilioClient) {
-        try {
-            const call = await twilioClient.calls.create({
-                twiml: `<Response><Say voice="alice">${spokenMessage}</Say></Response>`,
-                from: twilioPhoneNumber,
-                to: phone
-            });
-            console.log(`✅ Voice call initiated to ${targetPhone} via Twilio (SID: ${call.sid})`);
-            return { success: true, sid: call.sid };
-        } catch (err) {
-            console.error(`❌ Twilio voice call failed:`, err.message);
-            return { success: false, reason: err.message };
-        }
-    }
+/**
+ * Get WhatsApp CALL link (opens WhatsApp voice call directly)
+ * Works on mobile devices with WhatsApp installed
+ */
+function getWhatsAppCallUrl() {
+    const phone = (adminPhoneNumber || '').replace('+', '');
+    return `https://wa.me/${phone}`;
+}
 
-    // Try Vonage
-    if (vonageClient) {
-        try {
-            const call = await vonageClient.voice.createOutboundCall({
-                to: [{ type: 'phone', number: targetPhone.replace('+', '') }],
-                from: { type: 'phone', number: vonagePhoneNumber },
-                ncco: [{ action: 'talk', text: spokenMessage, language: 'en-US', style: 2 }]
-            });
-            console.log(`✅ Voice call initiated to ${targetPhone} via Vonage`);
-            return { success: true, uuid: call.uuid };
-        } catch (err) {
-            console.error(`❌ Vonage voice call failed:`, err.message);
-            return { success: false, reason: err.message };
-        }
-    }
-
-    console.log(`[CALL MOCK → ${targetPhone}] ${spokenMessage}`);
-    return { success: false, reason: 'no_voice_provider_configured' };
+/**
+ * Get tel: link for direct phone call
+ */
+function getCallUrl() {
+    return `tel:${adminPhoneNumber}`;
 }
 
 /**
@@ -223,16 +237,70 @@ async function notifyEmergency(channels, alert, targetPhone) {
         results.sms = await sendSMS(phone, smsBody);
     }
 
-    // Make voice call (for critical/Level 2 escalations)
+    // Send urgent SMS with "CALL BACK" instruction (acts as call alert)
     if (channels.includes('CALL') && phone) {
-        const spokenMsg = `Emergency alert from EmoSense. A student named ${alert.student_alias} has triggered an S.O.S. alert with severity ${alert.severity || 'high'}. Please check the EmoSense counselor dashboard immediately. This is an urgent mental health emergency.`;
-        results.call = await makeVoiceCall(phone, spokenMsg);
+        const urgentSms = `🚨🚨 URGENT CALL NEEDED 🚨🚨\n\nEmoSense: STUDENT IN DANGER!\n\nStudent: ${alert.student_alias}\nSeverity: CRITICAL\n${alert.location_address ? 'Location: ' + alert.location_address : ''}\n\nPLEASE CALL BACK OR CHECK DASHBOARD NOW!`;
+        results.call = await sendSMS(phone, urgentSms);
+        console.log(`📞 Urgent callback SMS sent to ${phone}`);
     }
 
-    // Email placeholder (future enhancement)
+    // WhatsApp alert (generate link for dashboard)
+    if (channels.includes('WHATSAPP')) {
+        const waUrl = getWhatsAppAlertUrl(alert);
+        console.log(`📱 WhatsApp alert URL: ${waUrl}`);
+        // Push to dashboard for auto-open
+        if (ioInstance) {
+            ioInstance.emit('sos-whatsapp-alert', {
+                alertId: alert.id,
+                whatsappUrl: waUrl,
+                whatsappCallUrl: getWhatsAppCallUrl(),
+                callUrl: getCallUrl(),
+                studentAlias: alert.student_alias
+            });
+        }
+        results.whatsapp = { success: true, url: waUrl };
+    }
+
+    // Email alert
     if (channels.includes('EMAIL')) {
-        console.log(`[EMAIL] Would send email alert for ${alert.student_alias} — not yet configured`);
-        results.email = { success: false, reason: 'not_configured' };
+        if (emailTransporter && adminEmail) {
+            try {
+                const locationInfo = alert.location_address ? `\nLocation: ${alert.location_address}` : '';
+                await emailTransporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: adminEmail,
+                    subject: `🚨 EmoSense SOS ALERT — ${alert.severity?.toUpperCase() || 'HIGH'} — ${alert.student_alias}`,
+                    html: `
+                        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+                            <div style="background:linear-gradient(135deg,#dc2626,#991b1b);color:white;padding:20px;border-radius:12px 12px 0 0;">
+                                <h1 style="margin:0;font-size:1.4rem;">🚨 EMERGENCY SOS ALERT</h1>
+                            </div>
+                            <div style="padding:20px;background:#fff;border:1px solid #e5e7eb;border-radius:0 0 12px 12px;">
+                                <table style="width:100%;border-collapse:collapse;">
+                                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Student:</td><td style="padding:8px 0;">${alert.student_alias}</td></tr>
+                                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Severity:</td><td style="padding:8px 0;"><span style="background:${alert.severity === 'critical' ? '#dc2626' : '#ea580c'};color:white;padding:2px 10px;border-radius:12px;font-size:0.8rem;">${(alert.severity || 'high').toUpperCase()}</span></td></tr>
+                                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Message:</td><td style="padding:8px 0;">${alert.trigger_message || alert.quick_message || 'SOS activated'}</td></tr>
+                                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Method:</td><td style="padding:8px 0;">${alert.contact_method}</td></tr>
+                                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Time:</td><td style="padding:8px 0;">${new Date().toLocaleString()}</td></tr>
+                                    ${alert.location_address ? `<tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Location:</td><td style="padding:8px 0;"><a href="https://maps.google.com/?q=${alert.latitude},${alert.longitude}">${alert.location_address}</a></td></tr>` : ''}
+                                </table>
+                                <div style="margin-top:16px;padding:12px;background:#fef2f2;border-radius:8px;color:#991b1b;font-weight:600;">
+                                    Please check the EmoSense counselor dashboard immediately.
+                                </div>
+                            </div>
+                        </div>
+                    `
+                });
+                console.log(`✅ Email alert sent to ${adminEmail}`);
+                results.email = { success: true };
+            } catch(err) {
+                console.error('❌ Email alert failed:', err.message);
+                results.email = { success: false, reason: err.message };
+            }
+        } else {
+            console.log(`[EMAIL] Email not configured — set EMAIL_USER, EMAIL_PASS, ADMIN_EMAIL in .env`);
+            results.email = { success: false, reason: 'not_configured' };
+        }
     }
 
     // Push notification via Socket.io (always works)
@@ -255,9 +323,9 @@ function triggerSOS(alert) {
         ioInstance.emit('crisis-alert', alert);
     }
 
-    // If user is unsafe, immediate escalation to Level 2 (SMS + CALL)
-    if (alert.contact_method === 'unsafe') {
-        notifyEmergency(['SMS', 'CALL', 'PUSH', 'EMAIL'], alert);
+    // If user is unsafe, immediate escalation to Level 2 (SMS + CALL + WHATSAPP + EMAIL)
+    if (alert.contact_method === 'unsafe' || alert.severity === 'critical') {
+        notifyEmergency(['SMS', 'CALL', 'WHATSAPP', 'PUSH', 'EMAIL'], alert);
         updateEscalation(alert.id, 2);
         return;
     }
@@ -284,17 +352,17 @@ function escalateSOS(alertId, targetLevel) {
 
     if (targetLevel === 1) {
         // Level 1: SMS to supervisor
-        notifyEmergency(['SMS', 'PUSH'], updatedAlert);
+        notifyEmergency(['SMS', 'PUSH', 'WHATSAPP'], updatedAlert);
         if (ioInstance) ioInstance.emit('sos-escalated', updatedAlert);
 
-        // Start 2 mins timer for Level 2 (SMS + CALL)
+        // Start 2 mins timer for Level 2 (SMS + CALL + EMAIL)
         const timer2 = setTimeout(() => {
             escalateSOS(alertId, 2);
         }, 120 * 1000);
         activeTimers.set(`${alertId}-L2`, timer2);
     } else if (targetLevel === 2) {
-        // Level 2: SMS + Voice Call (critical)
-        notifyEmergency(['SMS', 'CALL', 'PUSH', 'EMAIL'], updatedAlert);
+        // Level 2: ALL channels (critical)
+        notifyEmergency(['SMS', 'CALL', 'WHATSAPP', 'PUSH', 'EMAIL'], updatedAlert);
         if (ioInstance) ioInstance.emit('sos-escalated', updatedAlert);
     }
 }
@@ -319,5 +387,6 @@ module.exports = {
     acknowledgeSOS,
     notifyEmergency,
     sendSMS,
-    makeVoiceCall
+    getWhatsAppAlertUrl,
+    getCallUrl
 };
