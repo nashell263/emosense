@@ -418,6 +418,256 @@ function renderLiveChat(container, { sessionId, alias, counselorId, counselorNam
         sendBtn.disabled = true;
     });
 
+    // ── Incoming Call from Counselor ──
+    socket.on('incoming-call', (data) => {
+        const { type, counselorName, sessionId: callSessionId } = data;
+        
+        // Play ringtone sound
+        let ringCtx, ringOsc, ringInterval;
+        try {
+            ringCtx = new AudioContext();
+            const playRing = () => {
+                const osc = ringCtx.createOscillator();
+                const gain = ringCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 440;
+                gain.gain.value = 0.3;
+                osc.connect(gain);
+                gain.connect(ringCtx.destination);
+                osc.start();
+                setTimeout(() => { osc.frequency.value = 554; }, 150);
+                setTimeout(() => { osc.stop(); }, 300);
+            };
+            playRing();
+            ringInterval = setInterval(playRing, 1500);
+        } catch(e) {}
+
+        // Remove any existing call overlay
+        const existing = document.querySelector('.incoming-call-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'incoming-call-overlay';
+        overlay.innerHTML = `
+            <div class="incoming-call-card">
+                <div class="incoming-call-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                        ${type === 'video' 
+                            ? '<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>'
+                            : '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.11 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>'}
+                    </svg>
+                </div>
+                <h3 style="margin: 0 0 0.5rem; font-size: 1.25rem; color: white;">Incoming ${type === 'video' ? 'Video' : 'Audio'} Call</h3>
+                <p style="color: rgba(255,255,255,0.6); font-size: 0.9rem; margin-bottom: 0.25rem;">${counselorName || 'Your counselor'} is calling you</p>
+                <p style="color: rgba(255,255,255,0.3); font-size: 0.75rem;">This call is private and encrypted</p>
+                <div class="incoming-call-actions">
+                    <button class="call-decline-btn" id="student-call-decline" title="Decline">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.11 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                    </button>
+                    <button class="call-accept-btn" id="student-call-accept" title="Accept">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.11 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const cleanup = () => {
+            if (ringInterval) clearInterval(ringInterval);
+            if (ringCtx) ringCtx.close().catch(() => {});
+            overlay.remove();
+        };
+
+        // Decline
+        document.getElementById('student-call-decline').addEventListener('click', () => {
+            cleanup();
+            socket.emit('call-end', { sessionId: callSessionId });
+            addMessage('📞 You declined the call.', 'system');
+        });
+
+        // Accept
+        document.getElementById('student-call-accept').addEventListener('click', async () => {
+            cleanup();
+            addMessage(`📞 ${type === 'video' ? 'Video' : 'Audio'} call connecting with ${counselorName}...`, 'system');
+
+            // Setup student-side WebRTC FIRST — before emitting call-accept
+            try {
+                const constraints = { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
+                if (type === 'video') constraints.video = { width: 640, height: 480, facingMode: 'user' };
+                const localStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+                const ICE_SERVERS = { iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]};
+                const pc = new RTCPeerConnection(ICE_SERVERS);
+
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+                // Show in-call UI bar
+                const callBar = document.createElement('div');
+                callBar.id = 'student-call-bar';
+                callBar.style.cssText = 'background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(34,197,94,0.3);border-radius:16px;padding:1rem 1.5rem;margin:0.75rem;display:flex;align-items:center;justify-content:space-between;color:white;';
+                callBar.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:0.75rem;">
+                        <div style="width:10px;height:10px;border-radius:50%;background:#22c55e;animation:pulse-dot 2s infinite;"></div>
+                        <span style="font-size:0.85rem;">In call with ${counselorName}</span>
+                        <span id="student-call-timer" style="font-family:var(--font-display);font-weight:700;color:#22c55e;">00:00</span>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;">
+                        <button id="student-mute-btn" style="width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;" title="Mute">🎤</button>
+                        ${type === 'video' ? '<button id="student-cam-btn" style="width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;" title="Camera">📷</button>' : ''}
+                        <button id="student-end-call" style="width:40px;height:40px;border-radius:50%;border:none;background:#ef4444;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;" title="End Call">✖</button>
+                    </div>
+                `;
+                const chatMain = document.querySelector('.live-chat-main');
+                if (chatMain) chatMain.insertBefore(callBar, chatMain.children[1]);
+
+                // Video elements for video calls
+                let videoContainer = null;
+                if (type === 'video') {
+                    videoContainer = document.createElement('div');
+                    videoContainer.id = 'student-video-container';
+                    videoContainer.style.cssText = 'display:flex;gap:0.75rem;padding:0.75rem;background:rgba(0,0,0,0.3);border-radius:12px;margin:0 0.75rem;';
+                    videoContainer.innerHTML = `
+                        <div style="flex:1;position:relative;">
+                            <video id="student-remote-video" autoplay playsinline style="width:100%;border-radius:10px;background:#000;border:2px solid rgba(34,197,94,0.3);"></video>
+                            <div style="position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,0.6);color:white;padding:2px 8px;border-radius:6px;font-size:0.7rem;">${counselorName}</div>
+                        </div>
+                        <div style="width:120px;position:relative;">
+                            <video id="student-local-video" autoplay muted playsinline style="width:100%;border-radius:10px;background:#000;border:2px solid rgba(255,255,255,0.2);"></video>
+                            <div style="position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,0.6);color:white;padding:2px 8px;border-radius:6px;font-size:0.7rem;">You</div>
+                        </div>
+                    `;
+                    if (chatMain) chatMain.insertBefore(videoContainer, callBar.nextSibling);
+
+                    // Show local video preview
+                    const localVid = document.getElementById('student-local-video');
+                    if (localVid) localVid.srcObject = localStream;
+                }
+
+                // Remote audio element (for audio-only calls)
+                let remoteAudio = null;
+                if (type !== 'video') {
+                    remoteAudio = document.createElement('audio');
+                    remoteAudio.autoplay = true;
+                    remoteAudio.id = 'student-remote-audio';
+                    document.body.appendChild(remoteAudio);
+                }
+
+                // Handle remote stream from counselor
+                pc.ontrack = (event) => {
+                    if (type === 'video') {
+                        const remoteVid = document.getElementById('student-remote-video');
+                        if (remoteVid) remoteVid.srcObject = event.streams[0];
+                    } else if (remoteAudio) {
+                        remoteAudio.srcObject = event.streams[0];
+                    }
+                    addMessage(`✅ ${type === 'video' ? 'Video' : 'Audio'} connected — you can now talk!`, 'system');
+                };
+
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        socket.emit('webrtc-ice-candidate', { sessionId: callSessionId, candidate: event.candidate });
+                    }
+                };
+
+                // Listen for ICE candidates from counselor
+                socket.on('webrtc-ice-candidate', async (iceData) => {
+                    if (iceData.candidate) {
+                        try { await pc.addIceCandidate(new RTCIceCandidate(iceData.candidate)); } catch(e) {}
+                    }
+                });
+
+                // Listen for the counselor's offer — MUST be set up before emitting call-accept
+                socket.on('webrtc-offer', async (offerData) => {
+                    if (offerData.offer) {
+                        try {
+                            await pc.setRemoteDescription(new RTCSessionDescription(offerData.offer));
+                            const answer = await pc.createAnswer();
+                            await pc.setLocalDescription(answer);
+                            socket.emit('webrtc-answer', { sessionId: callSessionId, answer });
+                        } catch(err) {
+                            console.error('[CALL] Failed to handle offer:', err);
+                            addMessage('⚠️ Call connection failed. Please try again.', 'system');
+                        }
+                    }
+                });
+
+                // NOW emit call-accept — counselor will create and send the offer after receiving this
+                socket.emit('call-accept', { sessionId: callSessionId });
+
+                // Call timer
+                let callSecs = 0;
+                const timerInterval = setInterval(() => {
+                    callSecs++;
+                    const timerEl = document.getElementById('student-call-timer');
+                    if (timerEl) timerEl.textContent = `${String(Math.floor(callSecs/60)).padStart(2,'0')}:${String(callSecs%60).padStart(2,'0')}`;
+                }, 1000);
+
+                // Mute toggle
+                let muted = false;
+                document.getElementById('student-mute-btn')?.addEventListener('click', (e) => {
+                    muted = !muted;
+                    localStream.getAudioTracks().forEach(t => { t.enabled = !muted; });
+                    e.currentTarget.textContent = muted ? '🔇' : '🎤';
+                    e.currentTarget.style.background = muted ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.1)';
+                });
+
+                // Camera toggle (video calls only)
+                if (type === 'video') {
+                    let camOff = false;
+                    document.getElementById('student-cam-btn')?.addEventListener('click', (e) => {
+                        camOff = !camOff;
+                        localStream.getVideoTracks().forEach(t => { t.enabled = !camOff; });
+                        e.currentTarget.textContent = camOff ? '🚫' : '📷';
+                        e.currentTarget.style.background = camOff ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.1)';
+                    });
+                }
+
+                // End call cleanup
+                const cleanupCall = () => {
+                    try { pc.close(); } catch(e) {}
+                    localStream.getTracks().forEach(t => t.stop());
+                    clearInterval(timerInterval);
+                    callBar?.remove();
+                    videoContainer?.remove();
+                    remoteAudio?.remove();
+                    socket.off('webrtc-offer');
+                    socket.off('webrtc-ice-candidate');
+                    socket.off('call-ended');
+                };
+
+                document.getElementById('student-end-call')?.addEventListener('click', () => {
+                    cleanupCall();
+                    socket.emit('call-end', { sessionId: callSessionId });
+                    addMessage(`📞 Call ended (${Math.floor(callSecs/60)}m ${callSecs%60}s)`, 'system');
+                });
+
+                socket.on('call-ended', () => {
+                    cleanupCall();
+                    addMessage('📞 Call ended by counselor.', 'system');
+                });
+
+            } catch(err) {
+                addMessage(`⚠️ Could not start call: ${err.message}. Please check your microphone/camera permissions in your browser.`, 'system');
+            }
+        });
+
+        // Auto-dismiss after 30s
+        setTimeout(() => {
+            if (document.body.contains(overlay)) {
+                cleanup();
+                addMessage('📞 Missed call from ' + (counselorName || 'counselor'), 'system');
+            }
+        }, 30000);
+    });
+
     document.getElementById('end-session-btn')?.addEventListener('click', () => {
         socket.emit('end-session', { sessionId });
         addMessage('You ended the session. Take care! 💚', 'system');

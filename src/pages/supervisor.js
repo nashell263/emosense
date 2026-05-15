@@ -1,9 +1,10 @@
 /**
  * EmoSense Supervisor Portal
- * Admin dashboard for monitoring counselors, queue stats, flagged sessions, and reports
+ * Admin dashboard for monitoring counselors, queue stats, flagged sessions, reports,
+ * and managing counselor accounts (delete).
  */
 
-import { apiGet, apiPost, apiPut, getCounselorToken, saveCounselorToken, clearCounselorToken } from '../api.js';
+import { apiGet, apiPost, apiPut, apiDelete, getCounselorToken, saveCounselorToken, clearCounselorToken } from '../api.js';
 
 export async function renderSupervisor(container) {
     const token = getCounselorToken();
@@ -72,7 +73,7 @@ function renderSupervisorLogin(container) {
 }
 
 function renderSupervisorUI(container, data, token) {
-    const { counselors, queueStats, recentAlerts, feedbackSummary, emotionStats } = data;
+    const { counselors, queueStats, recentAlerts, feedbackSummary, emotionStats, recentFeedback } = data;
 
     container.innerHTML = `
     <div style="padding: var(--space-xl) var(--space-lg); max-width: 1200px; margin: 0 auto;">
@@ -88,7 +89,7 @@ function renderSupervisorUI(container, data, token) {
       </div>
 
       <!-- Overview Cards -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: var(--space-xl);">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: var(--space-xl);">
         <div class="card" style="text-align: center; padding: 1.25rem;">
           <div style="font-size: 2rem; font-weight: 800; color: var(--primary-600);">${queueStats.totalActive || 0}</div>
           <div style="font-size: 0.8rem; color: var(--text-muted);">Active Sessions</div>
@@ -109,29 +110,38 @@ function renderSupervisorUI(container, data, token) {
           <div style="font-size: 2rem; font-weight: 800; color: #8b5cf6;">${feedbackSummary.avgRating || '—'}</div>
           <div style="font-size: 0.8rem; color: var(--text-muted);">Avg Rating</div>
         </div>
+        <div class="card" style="text-align: center; padding: 1.25rem;">
+          <div style="font-size: 2rem; font-weight: 800; color: #6366f1;">${counselors.length}</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted);">Total Counselors</div>
+        </div>
       </div>
 
       <!-- Tabs -->
-      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid var(--gray-200); padding-bottom: 0.5rem;">
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid var(--gray-200); padding-bottom: 0.5rem; flex-wrap: wrap;">
         <button class="btn btn-sm sup-tab active" data-tab="counselors">👥 Counselors</button>
         <button class="btn btn-sm sup-tab" data-tab="alerts">🚨 Alerts</button>
         <button class="btn btn-sm sup-tab" data-tab="emotions">🧠 Emotion Trends</button>
-        <button class="btn btn-sm sup-tab" data-tab="feedback">📊 Feedback</button>
+        <button class="btn btn-sm sup-tab" data-tab="feedback">📊 Feedback Stats</button>
+        <button class="btn btn-sm sup-tab" data-tab="student-feedback">💬 Student Feedback</button>
       </div>
 
       <!-- Counselors Tab -->
       <div class="sup-panel" id="panel-counselors">
-        <h3 style="margin-bottom: 1rem;">Counselor Status & Coverage</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h3 style="margin: 0;">Counselor Status & Management</h3>
+          <a href="#counselor-register" class="btn btn-sm btn-primary" style="font-size: 0.8rem; padding: 0.4rem 1rem; text-decoration: none;">+ Add Counselor</a>
+        </div>
         <div style="overflow-x: auto;">
           <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
             <thead>
               <tr style="background: var(--gray-50); text-align: left;">
                 <th style="padding: 0.75rem;">Name</th>
+                <th style="padding: 0.75rem;">Email</th>
                 <th style="padding: 0.75rem;">Status</th>
                 <th style="padding: 0.75rem;">Specialization</th>
-                <th style="padding: 0.75rem;">Active Chats</th>
-                <th style="padding: 0.75rem;">Max</th>
+                <th style="padding: 0.75rem;">Active</th>
                 <th style="padding: 0.75rem;">Load</th>
+                <th style="padding: 0.75rem; text-align: center;">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -139,13 +149,22 @@ function renderSupervisorUI(container, data, token) {
                 const load = c.max_concurrent_chats > 0 ? Math.round((c.activeChats / c.max_concurrent_chats) * 100) : 0;
                 const loadColor = load >= 80 ? '#ef4444' : load >= 50 ? '#f59e0b' : '#22c55e';
                 return `
-                <tr style="border-bottom: 1px solid var(--gray-100);">
+                <tr style="border-bottom: 1px solid var(--gray-100);" data-counselor-row="${c.id}">
                   <td style="padding: 0.75rem;"><strong>${c.name}</strong></td>
+                  <td style="padding: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">${c.email || '—'}</td>
                   <td style="padding: 0.75rem;">${c.is_online ? '<span style="color: #22c55e;">🟢 Online</span>' : '<span style="color: var(--text-muted);">⚪ Offline</span>'}</td>
                   <td style="padding: 0.75rem;">${c.specialization || '—'}</td>
-                  <td style="padding: 0.75rem;">${c.activeChats || 0}</td>
-                  <td style="padding: 0.75rem;">${c.max_concurrent_chats || 3}</td>
+                  <td style="padding: 0.75rem;">${c.activeChats || 0}/${c.max_concurrent_chats || 3}</td>
                   <td style="padding: 0.75rem;"><div style="background: var(--gray-200); border-radius: 10px; height: 8px; width: 80px;"><div style="background: ${loadColor}; border-radius: 10px; height: 8px; width: ${load}%;"></div></div></td>
+                  <td style="padding: 0.75rem; text-align: center;">
+                    <button class="btn-delete-counselor" data-id="${c.id}" data-name="${c.name}" title="Delete counselor"
+                      style="background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer; font-weight: 600; transition: all 0.2s;"
+                      onmouseover="this.style.background='#ef4444';this.style.color='white'"
+                      onmouseout="this.style.background='rgba(239,68,68,0.1)';this.style.color='#ef4444'"
+                      onclick="window.__deleteCounselor(${c.id}, '${c.name.replace(/'/g, "\\'")}')">
+                      🗑️ Delete
+                    </button>
+                  </td>
                 </tr>`;
               }).join('')}
             </tbody>
@@ -189,7 +208,7 @@ function renderSupervisorUI(container, data, token) {
         `}
       </div>
 
-      <!-- Feedback Tab -->
+      <!-- Feedback Stats Tab -->
       <div class="sup-panel" id="panel-feedback" style="display: none;">
         <h3 style="margin-bottom: 1rem;">Feedback Analytics</h3>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
@@ -217,6 +236,54 @@ function renderSupervisorUI(container, data, token) {
           </div>
         ` : ''}
       </div>
+
+      <!-- Student Feedback Tab (NEW) -->
+      <div class="sup-panel" id="panel-student-feedback" style="display: none;">
+        <h3 style="margin-bottom: 1rem;">💬 Student Feedback</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">View all feedback submitted by students after their sessions.</p>
+        ${!recentFeedback || recentFeedback.length === 0 
+          ? '<div style="text-align: center; padding: 2rem; color: var(--text-muted);"><div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📝</div><p>No student feedback yet.</p></div>'
+          : `<div style="display: flex; flex-direction: column; gap: 0.75rem;">
+              ${recentFeedback.map(fb => {
+                const stars = '⭐'.repeat(fb.rating || 0) + '☆'.repeat(5 - (fb.rating || 0));
+                const ratingColor = fb.rating >= 4 ? '#22c55e' : fb.rating >= 3 ? '#f59e0b' : '#ef4444';
+                const outcomeColors = {
+                  'felt_better': '#22c55e', 'much_better': '#059669', 'no_change': '#f59e0b',
+                  'felt_worse': '#ef4444', 'neutral': '#6b7280'
+                };
+                const outcomeLabels = {
+                  'felt_better': '🙂 Felt Better', 'much_better': '😊 Much Better', 'no_change': '😐 No Change',
+                  'felt_worse': '😞 Felt Worse', 'neutral': '😐 Neutral'
+                };
+                return `
+                <div style="background: white; border: 1px solid var(--gray-200); border-radius: 12px; padding: 1rem 1.25rem; transition: all 0.2s;" 
+                     onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                      <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.75rem; flex-shrink: 0;">${(fb.display_name || 'S').charAt(0)}</div>
+                      <div>
+                        <div style="font-weight: 600; font-size: 0.85rem;">${fb.display_name || 'Student'}</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">${new Date(fb.created_at).toLocaleString()}</div>
+                      </div>
+                    </div>
+                    <div style="text-align: right;">
+                      <div style="font-size: 0.85rem; letter-spacing: 2px;">${stars}</div>
+                      <div style="font-size: 0.7rem; font-weight: 700; color: ${ratingColor};">${fb.rating}/5</div>
+                    </div>
+                  </div>
+                  ${fb.comment ? `<div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; padding: 0.5rem 0; border-top: 1px solid var(--gray-100);">"${fb.comment}"</div>` : ''}
+                  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem;">
+                    ${fb.counselor_name ? `<span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: rgba(99,102,241,0.1); color: #818cf8;">🩺 ${fb.counselor_name}</span>` : ''}
+                    ${fb.category ? `<span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: rgba(245,158,11,0.1); color: #d97706;">📂 ${fb.category}</span>` : ''}
+                    ${fb.session_type ? `<span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: rgba(107,114,128,0.1); color: #6b7280;">${fb.session_type}</span>` : ''}
+                    ${fb.emotional_outcome ? `<span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: rgba(34,197,94,0.1); color: ${outcomeColors[fb.emotional_outcome] || '#6b7280'};">${outcomeLabels[fb.emotional_outcome] || fb.emotional_outcome}</span>` : ''}
+                  </div>
+                  ${fb.improvement ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-style: italic;">💡 Suggestion: "${fb.improvement}"</div>` : ''}
+                </div>`;
+              }).join('')}
+            </div>`
+        }
+      </div>
     </div>
   `;
 
@@ -230,6 +297,82 @@ function renderSupervisorUI(container, data, token) {
         });
     });
 
+    // Delete counselor — global handler so onclick in HTML always works
+    window.__deleteCounselor = async (id, name) => {
+        // Show custom confirmation dialog (native confirm() can be suppressed by browsers)
+        const overlay = document.createElement('div');
+        overlay.id = 'delete-confirm-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+        overlay.innerHTML = `
+            <div style="background:#1e293b;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:2rem;max-width:420px;width:90%;color:white;box-shadow:0 20px 40px rgba(0,0,0,0.4);">
+                <h3 style="margin:0 0 0.5rem;font-size:1.2rem;">⚠️ Delete Counselor</h3>
+                <p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin-bottom:1rem;">Are you sure you want to delete <strong style="color:white;">"${name}"</strong>?</p>
+                <ul style="color:rgba(255,255,255,0.5);font-size:0.8rem;margin-bottom:1.5rem;padding-left:1.2rem;">
+                    <li>Remove their account permanently</li>
+                    <li>Close any active sessions</li>
+                    <li>Remove their schedules and notes</li>
+                </ul>
+                <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+                    <button id="del-cancel" style="padding:0.5rem 1.25rem;border-radius:10px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:white;cursor:pointer;font-size:0.85rem;">Cancel</button>
+                    <button id="del-confirm" style="padding:0.5rem 1.25rem;border-radius:10px;border:none;background:#ef4444;color:white;cursor:pointer;font-weight:700;font-size:0.85rem;">Delete</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        // Wait for user choice
+        const userChoice = await new Promise(resolve => {
+            overlay.querySelector('#del-confirm').addEventListener('click', () => resolve(true));
+            overlay.querySelector('#del-cancel').addEventListener('click', () => resolve(false));
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) resolve(false); });
+        });
+        overlay.remove();
+
+        if (!userChoice) return;
+
+        const btn = container.querySelector(`.btn-delete-counselor[data-id="${id}"]`);
+        if (btn) { btn.disabled = true; btn.innerHTML = '⏳...'; }
+
+        try {
+            await apiDelete(`/api/counselors/${id}`, token);
+
+            // Remove the row from the table with animation
+            const row = container.querySelector(`[data-counselor-row="${id}"]`);
+            if (row) {
+                row.style.transition = 'all 0.3s';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(20px)';
+                setTimeout(() => row.remove(), 300);
+            }
+
+            showToast(`✅ Counselor "${name}" has been deleted.`, 'success');
+        } catch (err) {
+            if (btn) { btn.disabled = false; btn.innerHTML = '🗑️ Delete'; }
+            showToast(`❌ Failed to delete: ${err.message}`, 'error');
+        }
+    };
+
+
     document.getElementById('refresh-btn')?.addEventListener('click', () => renderSupervisor(container));
     document.getElementById('sup-logout')?.addEventListener('click', () => { clearCounselorToken(); renderSupervisorLogin(container); });
+}
+
+function showToast(message, type = 'success') {
+    const existing = document.getElementById('sup-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'sup-toast';
+    toast.style.cssText = `
+        position: fixed; bottom: 2rem; right: 2rem; z-index: 10000;
+        padding: 0.85rem 1.5rem; border-radius: 12px;
+        font-size: 0.85rem; font-weight: 600; color: white;
+        background: ${type === 'success' ? 'linear-gradient(135deg, #059669, #047857)' : 'linear-gradient(135deg, #dc2626, #991b1b)'};
+        box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+        animation: slideUp 0.3s ease-out;
+        max-width: 400px;
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3000);
 }

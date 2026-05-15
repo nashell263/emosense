@@ -51,19 +51,35 @@ export async function apiPut(path, data = {}, token = null) {
     return res.json();
 }
 
+export async function apiDelete(path, token = null) {
+    const headers = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: 'DELETE',
+        headers
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || 'Request failed');
+    }
+    return res.json();
+}
+
 export function getSocketUrl() {
     return API_BASE;
 }
 
-// Counselor token management
+// Counselor token management — use localStorage for persistence across tabs/reloads
 export function saveCounselorToken(token) {
-    sessionStorage.setItem('emosense_counselor_token', token);
+    localStorage.setItem('emosense_counselor_token', token);
 }
 
 export function getCounselorToken() {
-    return sessionStorage.getItem('emosense_counselor_token');
+    return localStorage.getItem('emosense_counselor_token');
 }
 
 export function clearCounselorToken() {
-    sessionStorage.removeItem('emosense_counselor_token');
+    localStorage.removeItem('emosense_counselor_token');
 }

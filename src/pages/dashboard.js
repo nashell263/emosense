@@ -109,7 +109,10 @@ function renderDashboardUI(container, data, token) {
       <!-- Sidebar -->
       <div class="dashboard-sidebar">
         <div class="dashboard-profile">
-          <img src="${counselor.photo || '/counselors/counselor-1.png'}" alt="${counselor.name}" class="profile-img" />
+          ${counselor.photo
+            ? `<img src="${counselor.photo}" alt="${counselor.name}" class="profile-img" />`
+            : `<div class="profile-img" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;font-weight:700;font-size:1.4rem;border-radius:50%;width:80px;height:80px;">${counselor.name ? counselor.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : '?'}</div>`
+          }
           <h3>${counselor.name}</h3>
           <p class="profile-spec">${counselor.specialization || 'General Counselor'}</p>
           <div class="profile-status ${counselor.is_online ? 'online' : 'offline'}">
@@ -129,6 +132,10 @@ function renderDashboardUI(container, data, token) {
           <button class="dash-nav-btn" data-section="history">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             History
+          </button>
+          <button class="dash-nav-btn" data-section="student-feedback">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            Student Feedback
           </button>
         </nav>
 
@@ -264,6 +271,20 @@ function renderDashboardUI(container, data, token) {
               `).join('')}
           </div>
         </div>
+
+        <!-- Student Feedback View -->
+        <div class="dash-section" id="section-student-feedback" style="display: none;">
+          <div class="dash-section-header">
+            <h2>💬 Student Feedback</h2>
+          </div>
+          <p style="font-size: 0.85rem; color: rgba(255,255,255,0.5); margin-bottom: 1rem;">View feedback from students about their counseling experience.</p>
+          <div id="student-feedback-list">
+            <div style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.4);">
+              <div class="vr-loading-spinner" style="margin: 0 auto 0.5rem;"></div>
+              Loading feedback...
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -275,6 +296,11 @@ function renderDashboardUI(container, data, token) {
             btn.classList.add('active');
             container.querySelectorAll('.dash-section').forEach(s => s.style.display = 'none');
             document.getElementById(`section-${btn.dataset.section}`).style.display = 'block';
+
+            // Lazy-load student feedback when tab is clicked
+            if (btn.dataset.section === 'student-feedback') {
+                loadStudentFeedback(token);
+            }
         });
     });
 
@@ -469,11 +495,14 @@ function connectSocket(container, token) {
         if (existing) existing.remove();
         const alertDiv = document.createElement('div');
         alertDiv.id = 'sos-call-alert';
-        alertDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100000;background:linear-gradient(135deg,#1e293b,#0f172a);border:2px solid #dc2626;border-radius:20px;padding:2rem;color:white;text-align:center;max-width:380px;box-shadow:0 25px 50px rgba(0,0,0,0.5);animation:sos-slide-in 0.3s ease;';
+        alertDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100000;background:linear-gradient(135deg,#1e293b,#0f172a);border:2px solid #dc2626;border-radius:20px;padding:2rem;color:white;text-align:center;max-width:400px;width:92%;box-shadow:0 25px 50px rgba(0,0,0,0.5);animation:sos-slide-in 0.3s ease;';
         alertDiv.innerHTML = `
             <div style="font-size:2.5rem;margin-bottom:0.5rem;">🚨</div>
             <h3 style="margin:0 0 0.5rem;font-size:1.2rem;color:white;">STUDENT IN DANGER</h3>
-            <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem;">${data.studentAlias} needs immediate help</p>
+            <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.5rem;">${data.studentAlias} needs immediate help</p>
+            ${data.studentPhone ? `<div style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:12px;padding:0.6rem 1rem;margin-bottom:1rem;">
+                <span style="font-size:1.1rem;font-weight:700;color:#4ade80;letter-spacing:1px;">📱 ${data.studentPhone}</span>
+            </div>` : ''}
             <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
                 <a href="${data.whatsappUrl}" target="_blank" style="display:flex;align-items:center;gap:0.5rem;padding:0.7rem 1.25rem;background:#25D366;color:white;border-radius:12px;font-weight:700;text-decoration:none;font-size:0.85rem;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.638l4.703-1.228A11.943 11.943 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.153 0-4.144-.68-5.78-1.834l-.404-.296-2.79.729.757-2.715-.325-.427A9.963 9.963 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
@@ -520,6 +549,19 @@ function showDashboardSOSBanner(alert, container, token) {
         </div>
     ` : '';
 
+    // Student phone contact links
+    const phoneRaw = (alert.studentPhone || '').replace(/[\s\-\(\)]/g, '');
+    const phoneForWA = phoneRaw.startsWith('0') ? '263' + phoneRaw.substring(1) : phoneRaw.replace('+', '');
+    const phoneFull = phoneRaw.startsWith('0') ? '+263' + phoneRaw.substring(1) : (phoneRaw.startsWith('+') ? phoneRaw : '+' + phoneRaw);
+    const phoneHtml = alert.studentPhone ? `
+        <div style="margin-top:0.5rem;padding:0.5rem 0.75rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:10px;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+            <span style="font-size:0.85rem;font-weight:600;color:#166534;">📱 ${alert.studentPhone}</span>
+            <a href="https://wa.me/${phoneForWA}?text=${encodeURIComponent('Hi, I\'m a counselor from MSU EmoSense. I received your SOS alert. How can I help you?')}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#25D366;color:white;border-radius:8px;font-size:0.75rem;font-weight:700;text-decoration:none;">💬 WhatsApp</a>
+            <a href="https://wa.me/${phoneForWA}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#128C7E;color:white;border-radius:8px;font-size:0.75rem;font-weight:700;text-decoration:none;">📞 WA Call</a>
+            <a href="tel:${phoneFull}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#059669;color:white;border-radius:8px;font-size:0.75rem;font-weight:700;text-decoration:none;">📱 Phone</a>
+        </div>
+    ` : '';
+
     const banner = document.createElement('div');
     banner.id = 'dash-sos-banner';
     banner.className = 'dashboard-sos-banner';
@@ -536,6 +578,7 @@ function showDashboardSOSBanner(alert, container, token) {
                 ${alert.quickMessage ? ` · "${alert.quickMessage}"` : ''}
             </p>
             ${triageHtml}
+            ${phoneHtml}
             ${locationHtml}
         </div>
         <div style="display:flex;gap:0.5rem;align-items:center;flex-shrink:0;">
@@ -725,36 +768,41 @@ async function loadSessionNotes(sessionId) {
 }
 
 function showCounselorFeedbackForm(sessionId) {
+    // Prevent duplicate feedback forms
+    const existing = document.getElementById('counselor-session-feedback-form');
+    if (existing) existing.remove();
+
     const mainArea = document.querySelector('.dashboard-main');
     const div = document.createElement('div');
-    div.style.cssText = 'background: white; padding: 1.5rem; border-radius: var(--radius-lg); box-shadow: var(--shadow-md); margin-top: 1rem;';
+    div.id = 'counselor-session-feedback-form';
+    div.style.cssText = 'background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); padding: 1.5rem; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); margin-top: 1rem; color: white;';
     div.innerHTML = `
-        <h3>📝 Session Feedback</h3>
-        <p style="font-size: 0.85rem; color: var(--text-secondary);">Rate this session for quality tracking.</p>
+        <h3 style="color: white; margin-bottom: 0.5rem;">📝 Session Feedback</h3>
+        <p style="font-size: 0.85rem; color: rgba(255,255,255,0.5); margin-bottom: 1rem;">Rate this session for quality tracking.</p>
         <div style="margin: 1rem 0;">
-            <label style="font-size: 0.8rem; font-weight: 600;">Difficulty (1-5):</label>
-            <input type="range" id="cf-difficulty" min="1" max="5" value="3" style="width: 100%;">
+            <label style="font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.8);">Difficulty (1-5):</label>
+            <input type="range" id="cf-difficulty" min="1" max="5" value="3" style="width: 100%; accent-color: #818cf8;">
         </div>
         <div style="margin: 1rem 0;">
-            <label style="font-size: 0.8rem; font-weight: 600;">Student's emotional state:</label>
-            <select id="cf-state" class="form-control" style="width: 100%; padding: 0.5rem;">
+            <label style="font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.8);">Student's emotional state:</label>
+            <select id="cf-state" style="width: 100%; padding: 0.5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: white;">
                 <option value="stressed">Stressed</option><option value="anxious">Anxious</option>
                 <option value="depressed">Low mood</option><option value="calm">Calm/Stable</option>
                 <option value="crisis">Crisis level</option>
             </select>
         </div>
         <div style="margin: 1rem 0;">
-            <label style="font-size: 0.8rem; font-weight: 600;">Outcome:</label>
-            <select id="cf-outcome" class="form-control" style="width: 100%; padding: 0.5rem;">
+            <label style="font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.8);">Outcome:</label>
+            <select id="cf-outcome" style="width: 100%; padding: 0.5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: white;">
                 <option value="resolved">Resolved</option><option value="improved">Improved</option>
                 <option value="ongoing">Ongoing - needs follow-up</option><option value="referred">Referred to specialist</option>
                 <option value="escalated">Escalated to supervisor</option>
             </select>
         </div>
-        <label style="display: flex; align-items: center; gap: 0.5rem; margin: 1rem 0; font-size: 0.85rem;">
-            <input type="checkbox" id="cf-followup"> Follow-up needed
+        <label style="display: flex; align-items: center; gap: 0.5rem; margin: 1rem 0; font-size: 0.85rem; color: rgba(255,255,255,0.7);">
+            <input type="checkbox" id="cf-followup" style="accent-color: #818cf8;"> Follow-up needed
         </label>
-        <textarea id="cf-notes" placeholder="Additional notes..." rows="2" class="form-control" style="width: 100%; margin-bottom: 1rem;"></textarea>
+        <textarea id="cf-notes" placeholder="Additional notes..." rows="2" style="width: 100%; margin-bottom: 1rem; padding: 0.5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: white; font-family: inherit; resize: vertical;"></textarea>
         <button class="btn btn-primary" id="cf-submit" style="width: 100%;">Submit Feedback</button>
     `;
     mainArea.appendChild(div);
@@ -774,6 +822,62 @@ function showCounselorFeedbackForm(sessionId) {
             setTimeout(() => div.remove(), 2000);
         } catch (e) { alert('Failed: ' + e.message); }
     });
+}
+
+async function loadStudentFeedback(token) {
+    const listEl = document.getElementById('student-feedback-list');
+    if (!listEl) return;
+
+    try {
+        const feedback = await apiGet('/api/feedback/all', token);
+
+        if (!feedback || feedback.length === 0) {
+            listEl.innerHTML = `
+                <div style="text-align: center; padding: 3rem 1rem; color: rgba(255,255,255,0.4);">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📝</div>
+                    <p style="margin: 0;">No student feedback yet. Feedback will appear here after sessions.</p>
+                </div>`;
+            return;
+        }
+
+        listEl.innerHTML = feedback.map(fb => {
+            const stars = '⭐'.repeat(fb.rating || 0) + '<span style="opacity:0.3;">' + '☆'.repeat(5 - (fb.rating || 0)) + '</span>';
+            const ratingColor = fb.rating >= 4 ? '#22c55e' : fb.rating >= 3 ? '#f59e0b' : '#ef4444';
+            const outcomeLabels = {
+                'felt_better': '🙂 Felt Better', 'much_better': '😊 Much Better', 'no_change': '😐 No Change',
+                'felt_worse': '😞 Felt Worse', 'neutral': '😐 Neutral', 'resolved': '✅ Resolved',
+                'improved': '📈 Improved', 'ongoing': '🔄 Ongoing'
+            };
+            return `
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; transition: all 0.2s;"
+                 onmouseover="this.style.borderColor='rgba(99,102,241,0.3)';this.style.background='rgba(255,255,255,0.06)'"
+                 onmouseout="this.style.borderColor='rgba(255,255,255,0.08)';this.style.background='rgba(255,255,255,0.04)'">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                  <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">${(fb.display_name || 'S').charAt(0)}</div>
+                  <div>
+                    <div style="font-weight: 600; font-size: 0.88rem; color: white;">${fb.display_name || 'Student'}</div>
+                    <div style="font-size: 0.7rem; color: rgba(255,255,255,0.35);">${new Date(fb.created_at).toLocaleString()}</div>
+                  </div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-size: 0.85rem;">${stars}</div>
+                  <div style="font-size: 0.72rem; font-weight: 700; color: ${ratingColor};">${fb.rating}/5</div>
+                </div>
+              </div>
+              ${fb.comment ? `<div style="font-size: 0.85rem; color: rgba(255,255,255,0.7); line-height: 1.5; padding: 0.6rem 0; border-top: 1px solid rgba(255,255,255,0.06);"><em>"${fb.comment}"</em></div>` : ''}
+              <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.35rem;">
+                ${fb.counselor_name ? `<span style="font-size: 0.68rem; padding: 2px 8px; border-radius: 10px; background: rgba(99,102,241,0.12); color: #a5b4fc;">🩺 ${fb.counselor_name}</span>` : ''}
+                ${fb.category ? `<span style="font-size: 0.68rem; padding: 2px 8px; border-radius: 10px; background: rgba(245,158,11,0.12); color: #fbbf24;">📂 ${fb.category}</span>` : ''}
+                ${fb.session_type ? `<span style="font-size: 0.68rem; padding: 2px 8px; border-radius: 10px; background: rgba(107,114,128,0.12); color: rgba(255,255,255,0.5);">${fb.session_type}</span>` : ''}
+                ${fb.emotional_outcome ? `<span style="font-size: 0.68rem; padding: 2px 8px; border-radius: 10px; background: rgba(34,197,94,0.12); color: #4ade80;">${outcomeLabels[fb.emotional_outcome] || fb.emotional_outcome}</span>` : ''}
+              </div>
+              ${fb.improvement ? `<div style="font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-top: 0.5rem; padding-top: 0.4rem; border-top: 1px solid rgba(255,255,255,0.04);"><span style="color: #fbbf24;">💡</span> "${fb.improvement}"</div>` : ''}
+            </div>`;
+        }).join('');
+    } catch (err) {
+        listEl.innerHTML = `<div style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.4);">Failed to load feedback: ${err.message}</div>`;
+    }
 }
 
 function sendCounselorMessage() {
@@ -829,7 +933,7 @@ function startDashCall(sessionId, type) {
     chatArea.style.position = 'relative';
     chatArea.appendChild(overlay);
     
-    // Setup WebRTC + start media
+    // Setup WebRTC + start media — call-initiate is emitted INSIDE after media is ready
     initWebRTCCall(sessionId, type);
     
     document.getElementById('dash-call-end').addEventListener('click', () => endDashCall(overlay));
@@ -849,8 +953,6 @@ function startDashCall(sessionId, type) {
             e.currentTarget.style.background = camOff ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.15)';
         });
     }
-    
-    socket.emit('call-initiate', { sessionId, type, counselorId: currentCounselor.id, counselorName: currentCounselor.name });
 }
 
 async function initWebRTCCall(sessionId, type) {
@@ -884,7 +986,7 @@ async function initWebRTCCall(sessionId, type) {
                 const remoteAudio = document.getElementById('dash-remote-audio');
                 if (remoteAudio) remoteAudio.srcObject = event.streams[0];
             }
-            statusEl.textContent = '✅ Connected';
+            statusEl.textContent = '✅ Connected — Call Active';
             startCallTimer();
         };
         
@@ -895,24 +997,37 @@ async function initWebRTCCall(sessionId, type) {
             }
         };
         
-        // Create and send offer
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        socket.emit('webrtc-offer', { sessionId, offer });
-        
-        // Listen for answer
-        socket.on('webrtc-answer', async (data) => {
-            if (peerConnection && data.answer) {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-            }
-        });
-        
         // Listen for ICE candidates from remote
         socket.on('webrtc-ice-candidate', async (data) => {
             if (peerConnection && data.candidate) {
                 try { await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e) {}
             }
         });
+
+        // Listen for answer from student
+        socket.on('webrtc-answer', async (data) => {
+            if (peerConnection && data.answer) {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            }
+        });
+
+        // WAIT for student to accept — THEN create and send the offer
+        // This ensures the student's WebRTC listeners are ready before the offer arrives
+        socket.on('call-accepted', async () => {
+            statusEl.textContent = '📞 Student accepted — connecting...';
+            try {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                socket.emit('webrtc-offer', { sessionId, offer });
+            } catch (err) {
+                statusEl.textContent = '⚠️ Failed to create call offer.';
+                console.error('[CALL] Offer creation failed:', err);
+            }
+        });
+
+        // NOW notify the student — everything is ready on counselor side
+        console.log('[CALL] Media ready, notifying student...');
+        socket.emit('call-initiate', { sessionId, type, counselorId: currentCounselor.id, counselorName: currentCounselor.name });
         
     } catch (err) {
         statusEl.textContent = '⚠️ ' + (type === 'video' ? 'Camera/mic' : 'Microphone') + ' access denied. Check browser permissions.';
@@ -944,6 +1059,7 @@ function endDashCall(overlay) {
     // Clean up socket listeners
     socket.off('webrtc-answer');
     socket.off('webrtc-ice-candidate');
+    socket.off('call-accepted');
     if (overlay) overlay.remove();
     socket.emit('call-end', { sessionId: activeSessionId });
 }

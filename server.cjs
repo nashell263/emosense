@@ -154,6 +154,17 @@ app.post('/api/chat', async (req, res) => {
                         `🚨 EmoSense CRISIS ALERT: High-risk message detected from session ${sid}. Message: "${message.substring(0, 100)}". Please check the system immediately.`
                     );
                 } catch (smsErr) { console.error('Crisis SMS error:', smsErr.message); }
+
+                // 4. Email ALL registered counselors about this crisis
+                try {
+                    emergencyManager.notifyCounselorsEmail({
+                        student_alias: sid,
+                        trigger_message: message.substring(0, 200),
+                        severity: 'high',
+                        contact_method: 'chat',
+                        id: 'auto_' + Date.now()
+                    });
+                } catch (emailErr) { console.error('Crisis counselor email error:', emailErr.message); }
             }
 
             res.json({
@@ -226,7 +237,7 @@ app.post('/api/counselors/logout', authMiddleware, (req, res) => {
 });
 
 app.post('/api/counselors/register', (req, res) => {
-    const { name, email, password, gender, specialization, bio } = req.body;
+    const { name, email, password, gender, specialization, bio, phone } = req.body;
     if (!name || !email || !password || !gender) {
         return res.status(400).json({ error: 'Name, email, password, and gender required' });
     }
@@ -236,11 +247,13 @@ app.post('/api/counselors/register', (req, res) => {
 
     const hash = bcrypt.hashSync(password, 10);
     const result = db.prepare(
-        'INSERT INTO counselors (name, email, password, gender, specialization, bio) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(name, email, hash, gender, specialization || '', bio || '');
+        'INSERT INTO counselors (name, email, password, gender, specialization, bio, phone) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(name, email, hash, gender, specialization || '', bio || '', phone || null);
+
+    console.log(`[REGISTER] New counselor registered: ${name} (${email}) — SOS emails will be sent to this address`);
 
     const token = jwt.sign({ id: result.lastInsertRowid, name }, JWT_SECRET, { expiresIn: '8h' });
-    res.json({ token, counselor: { id: result.lastInsertRowid, name, email, gender, specialization, bio } });
+    res.json({ token, counselor: { id: result.lastInsertRowid, name, email, gender, specialization, bio, phone } });
 });
 
 // ═══════════════════════════════════════════════════
@@ -526,7 +539,62 @@ app.get('/api/supervisor/dashboard', authMiddleware, (req, res) => {
     // Emotion distribution
     const emotionStats = db.prepare("SELECT detected_emotion as emotion, COUNT(*) as count FROM emotion_assessments GROUP BY detected_emotion ORDER BY count DESC").all();
 
-    res.json({ counselors, queueStats: { totalActive, totalWaiting }, recentAlerts, feedbackSummary, emotionStats });
+    // Recent student feedback (for supervisor + counselor view)
+    const recentFeedback = db.prepare(`
+        SELECT f.id, f.rating, f.comment, f.category, f.created_at, f.session_type, f.emotional_outcome, f.user_alias,
+               CASE WHEN f.anonymous = 1 THEN 'Anonymous Student' ELSE COALESCE(f.user_alias, 'Student') END as display_name,
+               c.name as counselor_name
+        FROM feedback f
+        LEFT JOIN counselors c ON f.counselor_id = c.id
+        ORDER BY f.created_at DESC
+        LIMIT 50
+    `).all();
+
+    res.json({ counselors, queueStats: { totalActive, totalWaiting }, recentAlerts, feedbackSummary, emotionStats, recentFeedback });
+});
+
+// Delete a counselor (Supervisor action)
+app.delete('/api/counselors/:id', authMiddleware, (req, res) => {
+    const counselorId = parseInt(req.params.id);
+    if (!counselorId) return res.status(400).json({ error: 'Invalid counselor ID' });
+
+    // Check if counselor exists
+    const counselor = db.prepare('SELECT id, name, email FROM counselors WHERE id = ?').get(counselorId);
+    if (!counselor) return res.status(404).json({ error: 'Counselor not found' });
+
+    // Don't allow deleting yourself
+    if (counselorId === req.counselorId) {
+        return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
+
+    // Delete related data first (schedules, session notes, counselor feedback)
+    db.prepare('DELETE FROM schedules WHERE counselor_id = ?').run(counselorId);
+    db.prepare('DELETE FROM session_notes WHERE counselor_id = ?').run(counselorId);
+    db.prepare('DELETE FROM counselor_feedback WHERE counselor_id = ?').run(counselorId);
+
+    // Close any active sessions
+    db.prepare("UPDATE chat_sessions SET status = 'closed', counselor_id = NULL WHERE counselor_id = ? AND status IN ('waiting', 'active')").run(counselorId);
+
+    // Delete the counselor
+    db.prepare('DELETE FROM counselors WHERE id = ?').run(counselorId);
+
+    console.log(`[SUPERVISOR] Counselor deleted: ${counselor.name} (${counselor.email}) by counselor ID ${req.counselorId}`);
+    res.json({ ok: true, deleted: counselor.name });
+});
+
+// Get all student feedback (for counselors to view)
+app.get('/api/feedback/all', authMiddleware, (req, res) => {
+    const feedback = db.prepare(`
+        SELECT f.id, f.rating, f.comment, f.category, f.created_at, f.session_type, f.emotional_outcome,
+               f.support_types, f.improvement,
+               CASE WHEN f.anonymous = 1 THEN 'Anonymous Student' ELSE COALESCE(f.user_alias, 'Student') END as display_name,
+               c.name as counselor_name
+        FROM feedback f
+        LEFT JOIN counselors c ON f.counselor_id = c.id
+        ORDER BY f.created_at DESC
+        LIMIT 100
+    `).all();
+    res.json(feedback);
 });
 
 // Counselor status update
@@ -662,7 +730,7 @@ app.post('/api/crisis/alert', (req, res) => {
 });
 
 app.post('/api/crisis/sos', (req, res) => {
-    const { contactMethod, contactInfo, isUnsafe, severity: clientSeverity, quickMessage, triageAnswers, location } = req.body;
+    const { contactMethod, contactInfo, isUnsafe, severity: clientSeverity, quickMessage, triageAnswers, location, studentPhone } = req.body;
     let sessionId = req.body.sessionId || ('sos_' + Date.now());
     const alias = 'Student-' + Math.floor(1000 + Math.random() * 9000);
     const severity = clientSeverity || (isUnsafe ? 'critical' : 'high');
@@ -672,13 +740,17 @@ app.post('/api/crisis/sos', (req, res) => {
         'INSERT INTO crisis_alerts (session_id, student_alias, trigger_message, detected_emotion, severity, contact_method, contact_info, latitude, longitude, location_address, quick_message, triage_answers) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
         sessionId, alias, triggerMsg, 'crisis', severity,
-        contactMethod || 'chat', contactInfo || '',
+        contactMethod || 'chat', studentPhone || contactInfo || '',
         location?.lat || null, location?.lng || null, location?.address || null,
         quickMessage || null, triageAnswers || null
     );
 
     const alert = db.prepare('SELECT * FROM crisis_alerts WHERE id = ?').get(result.lastInsertRowid);
-    emergencyManager.triggerSOS(alert);
+    
+    // Format student phone for WhatsApp links
+    const phoneClean = (studentPhone || '').replace(/[\s\-\(\)]/g, '');
+    const phoneForWA = phoneClean.startsWith('0') ? '263' + phoneClean.substring(1) : phoneClean.replace('+', '');
+    const phoneFull = phoneClean.startsWith('0') ? '+263' + phoneClean.substring(1) : (phoneClean.startsWith('+') ? phoneClean : '+' + phoneClean);
 
     // Create session for counselor chat
     try {
@@ -687,7 +759,7 @@ app.post('/api/crisis/sos', (req, res) => {
         ).run(sessionId, alias, 'waiting', severity === 'critical' ? 5 : severity === 'high' ? 4 : 3, 'emergency');
     } catch(e) {}
 
-    // Broadcast enhanced crisis alert to all connected counselors
+    // Broadcast crisis alert to ALL connected counselors IMMEDIATELY
     io.emit('crisis-alert', {
         id: alert.id,
         sessionId,
@@ -696,9 +768,33 @@ app.post('/api/crisis/sos', (req, res) => {
         contact_method: contactMethod,
         trigger_message: triggerMsg,
         quickMessage: quickMessage || '',
+        studentPhone: studentPhone || '',
         location: location ? { lat: location.lat, lng: location.lng, address: location.address } : null,
         triageAnswers: triageAnswers ? JSON.parse(triageAnswers) : null,
         timestamp: new Date().toISOString()
+    });
+
+    // IMMEDIATELY emit sos-whatsapp-alert so counselors get popup with student phone/WhatsApp links
+    if (studentPhone && phoneForWA) {
+        const waMsg = encodeURIComponent(
+            `🚨 *EmoSense SOS*\nHi, I'm a counselor from MSU. I received your emergency alert. Are you okay? How can I help you right now?`
+        );
+        io.emit('sos-whatsapp-alert', {
+            alertId: alert.id,
+            whatsappUrl: `https://wa.me/${phoneForWA}?text=${waMsg}`,
+            whatsappCallUrl: `https://wa.me/${phoneForWA}`,
+            callUrl: `tel:${phoneFull}`,
+            studentAlias: alias,
+            studentPhone: studentPhone
+        });
+    }
+
+    // Background: trigger escalation (SMS/email to admin) — don't await
+    emergencyManager.triggerSOS(alert);
+
+    // NEW: Also email ALL registered counselors about this SOS
+    emergencyManager.notifyCounselorsEmail(alert).catch(err => {
+        console.error('[SOS] Counselor email broadcast error:', err.message);
     });
 
     res.json({ ok: true, alertId: alert.id, sessionId, alias });
@@ -715,6 +811,25 @@ app.post('/api/crisis/chat', async (req, res) => {
     } catch (err) {
         res.json({ response: "Ndiri pano. Please breathe slowly. Help is on the way. (I am here.)" });
     }
+});
+
+// Infobip Voice Call — TTS emergency call to counselor/admin
+app.post('/api/crisis/voice-call', async (req, res) => {
+    const { targetPhone, studentAlias, severity, quickMessage, location, callType } = req.body;
+    const phone = targetPhone || process.env.ADMIN_PHONE_NUMBER || '+263712155253';
+
+    // Build TTS message based on call type
+    let ttsMessage;
+    if (callType === 'security') {
+        ttsMessage = `Attention campus security. This is an automated emergency alert from the EmoSense crisis system at Midlands State University. A student, ${studentAlias || 'anonymous'}, has activated the S.O.S. button and requires immediate security assistance. Severity level: ${severity || 'high'}. ${quickMessage ? 'The student says: ' + quickMessage + '.' : ''} ${location ? 'The student is located near ' + location + '.' : ''} Please respond immediately. Repeating: A student needs security help urgently. Please check the EmoSense dashboard or call back this number.`;
+    } else if (callType === 'emergency') {
+        ttsMessage = `Emergency. This is an automated call from EmoSense at Midlands State University. A student, ${studentAlias || 'anonymous'}, is in a ${severity || 'high'} severity crisis and needs emergency assistance. ${quickMessage ? 'Their message: ' + quickMessage + '.' : ''} ${location ? 'Location: ' + location + '.' : ''} Please dispatch help immediately.`;
+    } else {
+        ttsMessage = `Urgent counselor alert from EmoSense. A student, ${studentAlias || 'anonymous'}, has pressed the S.O.S. emergency button and is requesting immediate counselor support. The severity level is ${severity || 'high'}. ${quickMessage ? 'The student says: ' + quickMessage + '.' : ''} ${location ? 'They are located near ' + location + '.' : ''} Please open the EmoSense counselor dashboard immediately to respond, or call the student back. This is an urgent request. Thank you.`;
+    }
+
+    const result = await emergencyManager.makeInfobipVoiceCall(phone, ttsMessage);
+    res.json({ ok: result.success, result });
 });
 
 app.get('/api/crisis/alerts', authMiddleware, (req, res) => {
@@ -1488,6 +1603,12 @@ io.on('connection', (socket) => {
         const { roomId, alias, fileUrl, fileType, fileName } = data;
         io.to(`room-${roomId}`).emit('room-file', { alias, fileUrl, fileType, fileName, timestamp: Date.now() });
     });
+
+    // Emoji reactions in voice rooms
+    socket.on('voice-room-react', (data) => {
+        const { roomId, alias, emoji } = data;
+        socket.to(`room-${roomId}`).emit('room-reaction', { alias, emoji });
+    });
 });
 
 // Serve static files from the public folder (for uploads/assets)
@@ -1497,15 +1618,16 @@ app.use('/counselors', express.static(path.join(__dirname, 'public/counselors'))
 // Serve static files from the frontend build
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Non-API routes serve index.html for client-side routing
-app.get('*any', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-        const indexPath = path.join(__dirname, 'dist', 'index.html');
-        if (fs.existsSync(indexPath)) {
-            res.sendFile(indexPath);
-        } else {
-            res.status(404).send('Frontend not built. Please run "npm run build".');
-        }
+// Non-API routes serve index.html for client-side routing (SPA)
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+        return next();
+    }
+    const indexPath = path.join(__dirname, 'dist', 'index.html');
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        res.status(404).send('Frontend not built. Run "npm run build" first.');
     }
 });
 

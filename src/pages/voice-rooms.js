@@ -19,9 +19,9 @@ export async function renderVoiceRooms(container) {
     <div class="vr-page">
       <div class="vr-hero">
         <div class="vr-hero-content">
-          <div class="vr-hero-icon">🛡️</div>
-          <h1 class="vr-title">Safe Space Voice Rooms</h1>
-          <p class="vr-subtitle">HD audio & video support rooms with community roles. Join as a counsellor, student, or stay anonymous.</p>
+          <div class="vr-hero-icon">🎙️</div>
+          <h1 class="vr-title">EmoSense Spaces</h1>
+          <p class="vr-subtitle">Live audio rooms for mental wellness. Listen, speak, and connect in real-time with peers and counsellors.</p>
         </div>
         <div class="vr-hero-glow"></div>
       </div>
@@ -33,24 +33,29 @@ export async function renderVoiceRooms(container) {
     <!-- Join Role Modal -->
     <div class="vr-modal" id="vr-role-modal" style="display:none;">
       <div class="vr-role-dialog">
-        <h2>Choose Your Role</h2>
-        <p>How would you like to join this room?</p>
+        <h2>Join this Space</h2>
+        <p>How would you like to join?</p>
         <div class="vr-role-options">
           <button class="vr-role-btn" data-role="anonymous">
             <span class="vr-role-icon">🎭</span>
-            <span class="vr-role-name">Anonymous</span>
-            <span class="vr-role-desc">Random alias, fully private</span>
+            <div><span class="vr-role-name">Anonymous Listener</span>
+            <span class="vr-role-desc">Join privately with a random alias</span></div>
           </button>
           <button class="vr-role-btn" data-role="student">
             <span class="vr-role-icon">🎓</span>
-            <span class="vr-role-name">Student</span>
-            <span class="vr-role-desc">Named identity</span>
+            <div><span class="vr-role-name">Join with Name</span>
+            <span class="vr-role-desc">Enter your display name</span></div>
           </button>
           <button class="vr-role-btn counsellor" data-role="counsellor">
             <span class="vr-role-icon">🩺</span>
-            <span class="vr-role-name">Counsellor</span>
-            <span class="vr-role-desc">Verified, can moderate</span>
+            <div><span class="vr-role-name">Counsellor (Host)</span>
+            <span class="vr-role-desc">Login to host & moderate</span></div>
           </button>
+        </div>
+        <!-- Student name input -->
+        <div class="vr-name-input-area" id="vr-name-area" style="display:none;">
+          <input type="text" class="vr-name-input" id="vr-student-name" placeholder="Enter your display name..." maxlength="30" />
+          <button class="vr-name-join-btn" id="vr-name-join">Join →</button>
         </div>
         <!-- Counsellor login form (hidden by default) -->
         <div class="vr-counsellor-login" id="vr-counsellor-login" style="display:none;">
@@ -63,70 +68,73 @@ export async function renderVoiceRooms(container) {
       </div>
     </div>
 
-    <!-- Active Room Modal -->
+    <!-- Active Room Modal (Spaces-style) -->
     <div class="vr-modal" id="vr-room-modal" style="display:none;">
-      <div class="vr-modal-content" style="max-width:900px;width:95%;max-height:95vh;display:flex;flex-direction:column;">
-        <div class="vr-modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.5rem;border-bottom:1px solid var(--gray-200);">
+      <div class="vr-modal-content">
+        <div class="vr-modal-header">
           <div style="display:flex;align-items:center;gap:0.75rem;">
-            <span class="vr-modal-icon" id="vr-modal-icon"></span>
+            <span id="vr-modal-icon" style="font-size:1.5rem;"></span>
             <div>
-              <div id="vr-modal-title" style="font-weight:700;font-size:1.1rem;"></div>
-              <div id="vr-modal-topic" style="font-size:0.8rem;color:var(--text-muted);"></div>
+              <div id="vr-modal-title" style="font-weight:700;font-size:1.1rem;color:white;"></div>
+              <div id="vr-modal-topic" style="font-size:0.75rem;color:rgba(255,255,255,0.4);"></div>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:0.75rem;">
-            <span class="vr-participant-badge" id="vr-participant-badge"><span class="vr-pulse"></span> <span id="vr-live-count">0</span>/12</span>
-            <button class="vr-leave-btn" id="vr-leave-btn" style="padding:0.4rem 1rem;font-size:0.8rem;">🚪 Leave</button>
+            <span class="vr-participant-badge"><span class="vr-pulse"></span> <span id="vr-live-count">0</span> listening</span>
+            <button class="vr-leave-btn" id="vr-leave-btn">✌️ Leave</button>
           </div>
         </div>
 
         <div style="flex:1;display:flex;overflow:hidden;">
-          <!-- Main Area: Speakers + Listeners + Chat -->
           <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
-            <!-- Speakers Section -->
-            <div style="padding:1rem 1.5rem;border-bottom:1px solid var(--gray-100);">
-              <div style="font-size:0.75rem;font-weight:700;color:var(--primary-700);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">🎤 Speakers</div>
-              <div id="vr-speakers" style="display:flex;gap:1rem;flex-wrap:wrap;min-height:60px;align-items:center;">
-                <div style="color:var(--text-muted);font-size:0.8rem;">No active speakers</div>
+            <!-- Stage: Speakers -->
+            <div class="vr-stage">
+              <div class="vr-stage-label">🎤 On Stage</div>
+              <div id="vr-speakers" class="vr-speakers-grid">
+                <div style="color:rgba(255,255,255,0.3);font-size:0.8rem;">No speakers yet</div>
               </div>
             </div>
-            <!-- Listeners Section -->
-            <div style="padding:0.75rem 1.5rem;border-bottom:1px solid var(--gray-100);">
-              <div style="font-size:0.75rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">👥 Listeners</div>
-              <div id="vr-listeners" style="display:flex;gap:0.75rem;flex-wrap:wrap;min-height:40px;align-items:center;">
-                <div style="color:var(--text-muted);font-size:0.8rem;">Waiting for others...</div>
+            <!-- Listeners -->
+            <div class="vr-listeners-section" style="flex:1;overflow-y:auto;">
+              <div class="vr-listeners-label">👥 Listeners</div>
+              <div id="vr-listeners" class="vr-listeners-grid">
+                <div style="color:rgba(255,255,255,0.3);font-size:0.8rem;">Waiting for others...</div>
               </div>
             </div>
-            <!-- Chat Messages -->
-            <div class="vr-messages" id="vr-messages" style="flex:1;overflow-y:auto;padding:0.75rem 1.5rem;"></div>
-            <!-- Chat Input -->
-            <div class="vr-input-area" style="padding:0.75rem 1.5rem;border-top:1px solid var(--gray-100);">
+            <!-- Chat -->
+            <div class="vr-messages" id="vr-messages"></div>
+            <div class="vr-input-area">
               <div class="vr-input-row">
                 <button class="vr-attach-btn" id="vr-attach-btn" title="Share files">📎</button>
-                <input type="text" class="vr-chat-input" id="vr-chat-input" placeholder="Type a message..." />
+                <input type="text" class="vr-chat-input" id="vr-chat-input" placeholder="Send a message..." />
                 <button class="vr-send-btn" id="vr-send-btn">➤</button>
               </div>
               <input type="file" id="vr-file-input" style="display:none" accept="image/*,video/*,application/pdf,.doc,.docx,.txt" />
             </div>
           </div>
 
-          <!-- Counselor Controls Sidebar (hidden for students) -->
-          <div id="vr-counselor-panel" style="display:none;width:240px;border-left:1px solid var(--gray-200);background:var(--gray-50);overflow-y:auto;padding:1rem;">
-            <div style="font-size:0.75rem;font-weight:700;color:var(--primary-700);text-transform:uppercase;margin-bottom:0.75rem;">🩺 Counselor Controls</div>
+          <!-- Counselor Panel -->
+          <div id="vr-counselor-panel" class="vr-counselor-panel" style="display:none;">
+            <div style="font-size:0.7rem;font-weight:700;color:#a855f7;text-transform:uppercase;margin-bottom:0.75rem;">🩺 Host Controls</div>
             <div id="vr-hand-requests" style="margin-bottom:1rem;"></div>
-            <button class="btn btn-sm btn-outline" id="vr-announce-btn" style="width:100%;margin-bottom:0.5rem;font-size:0.75rem;">📢 Announce</button>
-            <button class="btn btn-sm" id="vr-end-session-btn" style="width:100%;background:var(--red-50);color:var(--red-600);border:1px solid var(--red-100);font-size:0.75rem;">🛑 End Session</button>
-            <div style="margin-top:1rem;font-size:0.7rem;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Participants</div>
+            <button class="vr-ctrl-btn" id="vr-announce-btn" style="width:100%;margin-bottom:0.5rem;justify-content:center;">📢 Announce</button>
+            <button class="vr-ctrl-btn" id="vr-end-session-btn" style="width:100%;justify-content:center;border-color:rgba(239,68,68,0.3);color:#f87171;">🛑 End Space</button>
+            <div style="margin-top:1rem;font-size:0.65rem;font-weight:600;color:rgba(255,255,255,0.3);text-transform:uppercase;">Participants</div>
             <div id="vr-participants-list" style="margin-top:0.5rem;"></div>
           </div>
         </div>
 
-        <!-- Bottom Control Bar -->
-        <div style="display:flex;justify-content:center;align-items:center;gap:1rem;padding:0.75rem;border-top:1px solid var(--gray-200);background:white;">
+        <!-- Bottom Controls Bar (Spaces-style) -->
+        <div class="vr-controls-bar" id="vr-reactions-container" style="position:relative;">
           <button class="vr-ctrl-btn muted" id="vr-mic-btn" title="Unmute"><span>🎤</span> Unmute</button>
-          <button class="vr-ctrl-btn" id="vr-camera-btn" title="Camera"><span>📷</span> Camera</button>
           <button class="vr-ctrl-btn" id="vr-hand-btn" title="Raise Hand"><span>✋</span> Raise Hand</button>
-          <button class="vr-ctrl-btn" id="vr-report-btn" title="Report" style="color:var(--red-600);"><span>🚩</span> Report</button>
+          <button class="vr-ctrl-btn" id="vr-camera-btn" title="Camera"><span>📷</span> Camera</button>
+          <div class="vr-react-bar">
+            <button class="vr-react-btn" data-emoji="❤️" title="Love">❤️</button>
+            <button class="vr-react-btn" data-emoji="🔥" title="Fire">🔥</button>
+            <button class="vr-react-btn" data-emoji="👏" title="Clap">👏</button>
+          </div>
+          <button class="vr-ctrl-btn" id="vr-report-btn" title="Report" style="color:#f87171;"><span>🚩</span></button>
         </div>
         <div class="vr-video-grid" id="vr-video-grid" style="display:none;">
           <video id="vr-local-video" class="vr-video-feed" muted autoplay playsinline style="display:none;"></video>
@@ -136,11 +144,11 @@ export async function renderVoiceRooms(container) {
 
     <!-- Room Rules Modal -->
     <div class="vr-modal" id="vr-rules-modal" style="display:none;">
-      <div style="background:white;border-radius:var(--radius-xl);max-width:450px;width:90%;padding:2rem;text-align:center;">
-        <div style="font-size:2.5rem;margin-bottom:0.5rem;">🛡️</div>
-        <h2 style="margin-bottom:0.5rem;">Room Guidelines</h2>
-        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.5rem;">Please read before entering</p>
-        <div style="text-align:left;font-size:0.875rem;color:var(--gray-700);line-height:2;">
+      <div style="background:#1e293b;border:1px solid rgba(168,85,247,0.2);border-radius:24px;max-width:450px;width:90%;padding:2rem;text-align:center;color:white;">
+        <div style="font-size:2.5rem;margin-bottom:0.5rem;">🎙️</div>
+        <h2 style="margin-bottom:0.5rem;">Space Guidelines</h2>
+        <p style="color:rgba(255,255,255,0.4);font-size:0.85rem;margin-bottom:1.5rem;">Please read before joining</p>
+        <div style="text-align:left;font-size:0.875rem;color:rgba(255,255,255,0.6);line-height:2;">
           <div>✅ Be respectful and supportive</div>
           <div>✅ No judgment or interrupting</div>
           <div>✅ Wait to be invited to speak</div>
@@ -148,8 +156,8 @@ export async function renderVoiceRooms(container) {
           <div>⚠️ This is peer support, not emergency care</div>
         </div>
         <div style="margin-top:1.5rem;display:flex;gap:0.75rem;justify-content:center;">
-          <button class="btn btn-outline btn-sm" id="vr-rules-cancel">Cancel</button>
-          <button class="btn btn-primary btn-sm" id="vr-rules-accept">I Agree — Enter Room</button>
+          <button class="vr-role-cancel" id="vr-rules-cancel">Cancel</button>
+          <button class="vr-name-join-btn" id="vr-rules-accept" style="padding:0.6rem 1.5rem;">🎧 Join Space</button>
         </div>
       </div>
     </div>
@@ -174,15 +182,19 @@ function renderRoomGrid(rooms) {
     <div class="vr-room-card ${room.participants > 0 ? 'has-people' : ''}" data-id="${room.id}">
       <div class="vr-card-glow"></div>
       <div class="vr-card-content">
-        <div class="vr-card-icon">${room.icon}</div>
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
+          <div class="vr-card-icon">${room.icon}</div>
+          ${room.participants > 0 ? '<span class="vr-live-badge"><span class="dot"></span> LIVE</span>' : ''}
+        </div>
         <h3 class="vr-card-name">${room.name}</h3>
         <p class="vr-card-desc">${room.description}</p>
+        ${room.participantList && room.participantList.length > 0 ? '<div style="display:flex;gap:-8px;margin-bottom:0.75rem;">' + room.participantList.slice(0,4).map(p => '<div style="width:28px;height:28px;border-radius:50%;background:rgba(168,85,247,0.2);border:2px solid #0f172a;display:flex;align-items:center;justify-content:center;font-size:0.7rem;margin-left:-6px;">' + (p.role==='counsellor'?'🩺':p.role==='student'?'🎓':'🎭') + '</div>').join('') + (room.participants > 4 ? '<div style="width:28px;height:28px;border-radius:50%;background:rgba(168,85,247,0.3);border:2px solid #0f172a;display:flex;align-items:center;justify-content:center;font-size:0.55rem;color:#c4b5fd;margin-left:-6px;">+' + (room.participants-4) + '</div>' : '') + '</div>' : ''}
         <div class="vr-card-footer">
           <div class="vr-card-count ${room.participants > 0 ? 'active' : ''}">
             <span class="vr-card-dot"></span>
-            <span>${room.participants} ${room.participants === 1 ? 'person' : 'people'} here</span>
+            <span>${room.participants > 0 ? room.participants + ' listening' : 'No one yet'}</span>
           </div>
-          <button class="vr-join-btn" data-id="${room.id}">${room.participants > 0 ? 'Join Now' : 'Enter Room'}</button>
+          <button class="vr-join-btn" data-id="${room.id}">${room.participants > 0 ? '🎧 Tune In' : 'Start Listening'}</button>
         </div>
       </div>
     </div>
@@ -200,26 +212,35 @@ function renderRoomGrid(rooms) {
 function showRoleModal(room) {
   const modal = document.getElementById('vr-role-modal');
   const loginForm = document.getElementById('vr-counsellor-login');
+  const nameArea = document.getElementById('vr-name-area');
   modal.style.display = 'flex';
   loginForm.style.display = 'none';
-
-  let selectedRole = null;
-  let selectedAlias = null;
+  nameArea.style.display = 'none';
 
   document.querySelectorAll('.vr-role-btn').forEach(btn => {
     btn.onclick = () => {
       const role = btn.dataset.role;
       if (role === 'counsellor') {
+        nameArea.style.display = 'none';
         loginForm.style.display = 'block';
         setupCounsellorLogin(room);
+      } else if (role === 'student') {
+        loginForm.style.display = 'none';
+        nameArea.style.display = 'flex';
+        document.getElementById('vr-student-name').focus();
+        document.getElementById('vr-name-join').onclick = () => {
+          const name = document.getElementById('vr-student-name').value.trim();
+          if (!name) { document.getElementById('vr-student-name').style.borderColor = '#ef4444'; return; }
+          modal.style.display = 'none';
+          showRulesModal(room, name, 'student');
+        };
+        document.getElementById('vr-student-name').onkeydown = e => {
+          if (e.key === 'Enter') document.getElementById('vr-name-join').click();
+        };
       } else {
-        selectedRole = role;
-        selectedAlias = role === 'student'
-          ? 'Student-' + Math.floor(1000 + Math.random() * 9000)
-          : 'Anon-' + Math.floor(100 + Math.random() * 900);
+        const alias = 'Listener-' + Math.floor(1000 + Math.random() * 9000);
         modal.style.display = 'none';
-        // Show rules before entering
-        showRulesModal(room, selectedAlias, selectedRole);
+        showRulesModal(room, alias, 'anonymous');
       }
     };
   });
@@ -304,7 +325,20 @@ function openRoom(room, alias, role) {
   let roomParticipants = [];
 
   socket.emit('voice-room-join', { roomId: room.id, alias, role });
-  addSystemMsg(messagesEl, `Welcome to ${room.name}. This is a safe space. You can listen or request to speak. 💚`);
+  addSystemMsg(messagesEl, `Welcome to ${room.name}. 🎙️ This is a live Space — listen or raise your hand to speak.`);
+
+  // Reaction buttons
+  document.querySelectorAll('.vr-react-btn').forEach(btn => {
+    btn.onclick = () => {
+      const emoji = btn.dataset.emoji;
+      socket.emit('voice-room-react', { roomId: room.id, alias, emoji });
+      spawnFloatingReaction(emoji);
+    };
+  });
+
+  socket.on('room-reaction', data => {
+    if (data.alias !== alias) spawnFloatingReaction(data.emoji);
+  });
 
   socket.on('room-update', data => {
     liveCount.textContent = data.participants;
@@ -610,24 +644,34 @@ function renderSpeakersListeners(speakersEl, listenersEl, list, selfAlias, selfR
   const speakers = list.filter(p => p.role === 'counsellor' || p.isSpeaker);
   const listeners = list.filter(p => p.role !== 'counsellor' && !p.isSpeaker);
 
-  const makeAvatar = (p, isSelf) => {
+  const makeSpeakerAvatar = (p, isSelf) => {
     const icon = p.role === 'counsellor' ? '🩺' : p.role === 'student' ? '🎓' : '🎭';
-    const hand = p.handRaised ? '<div style="position:absolute;top:-4px;right:-4px;font-size:0.7rem;">✋</div>' : '';
-    const border = p.role === 'counsellor' ? 'border:2px solid var(--primary-500);' : isSelf ? 'border:2px solid var(--primary-300);' : '';
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;">
+    const isHost = p.role === 'counsellor';
+    const hand = p.handRaised ? '<div class="vr-avatar-hand">✋</div>' : '';
+    return `<div class="vr-avatar">
       ${hand}
-      <div style="width:48px;height:48px;border-radius:50%;background:var(--gray-100);display:flex;align-items:center;justify-content:center;font-size:1.25rem;${border}">${icon}</div>
-      <div style="font-size:0.7rem;color:var(--gray-600);max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;">${escapeHtml(p.alias)}${isSelf ? ' (You)' : ''}</div>
+      <div class="vr-avatar-circle ${isHost ? 'host' : ''}">${icon}</div>
+      <div class="vr-avatar-name">${escapeHtml(p.alias)}${isSelf ? ' (You)' : ''}</div>
+    </div>`;
+  };
+
+  const makeListenerAvatar = (p, isSelf) => {
+    const icon = p.role === 'student' ? '🎓' : '🎭';
+    const hand = p.handRaised ? '<div class="vr-avatar-hand" style="width:16px;height:16px;font-size:0.6rem;">✋</div>' : '';
+    return `<div class="vr-listener-avatar" style="position:relative;">
+      ${hand}
+      <div class="vr-listener-circle">${icon}</div>
+      <div class="vr-listener-name">${escapeHtml(p.alias)}${isSelf ? ' (You)' : ''}</div>
     </div>`;
   };
 
   speakersEl.innerHTML = speakers.length > 0
-    ? speakers.map(p => makeAvatar(p, p.alias === selfAlias)).join('')
-    : '<div style="color:var(--text-muted);font-size:0.8rem;">No active speakers</div>';
+    ? speakers.map(p => makeSpeakerAvatar(p, p.alias === selfAlias)).join('')
+    : '<div style="color:rgba(255,255,255,0.3);font-size:0.8rem;">No speakers yet</div>';
 
   listenersEl.innerHTML = listeners.length > 0
-    ? listeners.map(p => makeAvatar(p, p.alias === selfAlias)).join('')
-    : '<div style="color:var(--text-muted);font-size:0.8rem;">Waiting for others...</div>';
+    ? listeners.map(p => makeListenerAvatar(p, p.alias === selfAlias)).join('')
+    : '<div style="color:rgba(255,255,255,0.3);font-size:0.8rem;">Waiting for others...</div>';
 }
 
 function updateCounselorPanel(list, selfAlias, socket, roomId) {
@@ -677,4 +721,15 @@ function escapeHtml(text) {
   if (!text) return '';
   const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
   return text.replace(/[&<>"']/g, c => map[c]);
+}
+
+function spawnFloatingReaction(emoji) {
+  const container = document.getElementById('vr-reactions-container');
+  if (!container) return;
+  const el = document.createElement('div');
+  el.className = 'vr-floating-reaction';
+  el.textContent = emoji;
+  el.style.left = (30 + Math.random() * 60) + '%';
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
 }

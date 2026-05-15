@@ -4,6 +4,7 @@
  */
 
 import './styles/index.css';
+import './styles/voice-rooms.css';
 import { registerRoute, initRouter } from './router.js';
 import { renderNav } from './components/nav.js';
 import { renderHome } from './pages/home.js';
@@ -19,6 +20,7 @@ import { renderFeedback } from './pages/feedback.js';
 import { renderEmergencyButton } from './components/emergency-button.js';
 import { initOnboardingGuide } from './components/onboarding-guide.js';
 import { renderSupervisor } from './pages/supervisor.js';
+import { renderCounselorRegister } from './pages/counselor-register.js';
 
 // Initialize navigation
 const navContainer = document.getElementById('main-nav');
@@ -36,6 +38,7 @@ registerRoute('analytics', renderAnalytics);
 registerRoute('voice-rooms', renderVoiceRooms);
 registerRoute('feedback', renderFeedback);
 registerRoute('supervisor', renderSupervisor);
+registerRoute('counselor-register', renderCounselorRegister);
 
 // Update nav on hash change
 window.addEventListener('hashchange', () => {

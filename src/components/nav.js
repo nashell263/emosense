@@ -19,6 +19,7 @@ const STAFF_LINKS = [
   { href: '#dashboard', label: 'Counselor Dashboard', icon: '🩺' },
   { href: '#supervisor', label: 'Supervisor Portal', icon: '🛡️' },
   { href: '#analytics', label: 'Analytics', icon: '📊' },
+  { href: '#counselor-register', label: 'Register as Counselor', icon: '📝' },
 ];
 
 const ICONS = {
@@ -178,6 +179,7 @@ export function renderNav(container) {
   // Nav logout button (for logged-in counselors)
   document.getElementById('nav-logout-btn')?.addEventListener('click', () => {
     localStorage.removeItem('emosense_counselor_token');
+    sessionStorage.removeItem('emosense_counselor_token'); // Clean up any stale sessionStorage tokens
     window.location.hash = '#home';
     window.location.reload();
   });

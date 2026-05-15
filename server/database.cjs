@@ -317,6 +317,7 @@ function initTables() {
   try { db.exec("ALTER TABLE counselors ADD COLUMN specialization_tags TEXT DEFAULT ''"); } catch(e) {}
   try { db.exec("ALTER TABLE counselors ADD COLUMN languages TEXT DEFAULT 'English'"); } catch(e) {}
   try { db.exec("ALTER TABLE counselors ADD COLUMN status TEXT DEFAULT 'available'"); } catch(e) {}
+  try { db.exec("ALTER TABLE counselors ADD COLUMN phone TEXT"); } catch(e) {}
 
   // chat_sessions enhancements
   try { db.exec("ALTER TABLE chat_sessions ADD COLUMN queue_position INTEGER"); } catch(e) {}

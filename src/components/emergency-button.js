@@ -49,6 +49,11 @@ export function renderEmergencyButton(container) {
                         <h2>Emergency Support</h2>
                         <p class="sos-confirm-text">This button is for <strong>urgent emotional or safety situations</strong>. A counselor will be alerted immediately.</p>
                     </div>
+                    <div style="margin:0.75rem 0;">
+                        <label style="display:block;font-size:0.85rem;font-weight:600;color:white;margin-bottom:0.35rem;">📱 Your Phone Number <span style='color:#94a3b8;font-weight:400;'>(so a counselor can call you)</span></label>
+                        <input type="tel" id="sos-phone-input" placeholder="e.g. 0712 345 678" style="width:100%;padding:0.65rem 0.75rem;border:1px solid rgba(255,255,255,0.15);border-radius:10px;background:rgba(255,255,255,0.08);color:white;font-size:1rem;outline:none;" />
+                        <p style="font-size:0.7rem;color:#94a3b8;margin-top:0.25rem;">Your number is shared only with your assigned counselor and deleted after the session.</p>
+                    </div>
                     <button class="sos-btn-confirm" id="sos-confirm-btn">I Understand — I Need Help Now</button>
                     <button class="sos-btn-cancel" id="sos-cancel-btn">Cancel</button>
                 </div>
@@ -102,15 +107,7 @@ export function renderEmergencyButton(container) {
                         <button class="sos-quick-msg" data-msg="I'm having a panic attack.">😰 I'm having a panic attack</button>
                     </div>
                     <div class="sos-action-grid">
-                        <a href="tel:+263242700800" class="sos-action-btn security">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                            <span>Call Campus Security</span>
-                        </a>
-                        <a href="tel:999" class="sos-action-btn emergency">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.11 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72"/></svg>
-                            <span>Call Emergency (999)</span>
-                        </a>
-                        <button class="sos-action-btn counselor" data-action="counselor">
+                        <button class="sos-action-btn counselor" data-action="counselor" data-calltype="counselor">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                             <span>Contact Counsellor Now</span>
                         </button>
@@ -226,6 +223,7 @@ let triageAnswers = { danger: false, selfharm: false, urgent: false };
 let selectedQuickMsg = '';
 let selectedAction = '';
 let sharedLocation = null;
+let studentPhone = '';
 
 function getSeverity() {
     if (triageAnswers.danger || triageAnswers.selfharm) return 'critical';
@@ -259,6 +257,7 @@ function attachListeners() {
             alert('For your safety, SOS is limited to 3 activations per hour. If this is a real emergency, please call 999 or 112 directly.');
             return;
         }
+        studentPhone = (document.getElementById('sos-phone-input')?.value || '').trim();
         showStage('triage');
     });
     document.getElementById('sos-cancel-btn').addEventListener('click', () => {
@@ -291,10 +290,24 @@ function attachListeners() {
         });
     });
 
-    // Stage 2: Action buttons
+    // Stage 2: Action buttons — all proceed to location stage AND trigger voice call if applicable
+    let selectedCallType = '';
     document.querySelectorAll('.sos-action-btn[data-action]').forEach(btn => {
         btn.addEventListener('click', () => {
             selectedAction = btn.dataset.action;
+            selectedCallType = btn.dataset.calltype || '';
+
+            // Fire Infobip voice call in background (non-blocking) for call-type actions
+            if (selectedCallType) {
+                apiPost('/api/crisis/voice-call', {
+                    callType: selectedCallType,
+                    studentAlias: 'Student',
+                    severity: getSeverity(),
+                    quickMessage: selectedQuickMsg || '',
+                    location: sharedLocation?.address || ''
+                }).catch(e => console.log('Voice call queued:', e.message));
+            }
+
             showStage('location');
         });
     });
@@ -386,12 +399,13 @@ async function triggerSOS() {
     try {
         const res = await apiPost('/api/crisis/sos', {
             contactMethod: selectedAction || 'chat',
-            contactInfo: '',
+            contactInfo: studentPhone,
             isUnsafe: triageAnswers.danger || triageAnswers.selfharm,
             severity: getSeverity(),
             quickMessage: selectedQuickMsg,
             triageAnswers: JSON.stringify(triageAnswers),
-            location: sharedLocation
+            location: sharedLocation,
+            studentPhone: studentPhone
         });
         currentAlertId = res.alertId;
         currentSessionId = res.sessionId;
@@ -531,4 +545,5 @@ function closeSOSModal(modal) {
     triageAnswers = { danger: false, selfharm: false, urgent: false };
     selectedQuickMsg = '';
     selectedAction = '';
+    studentPhone = '';
 }

@@ -1,0 +1,340 @@
+/* ═══════════════════════════════════════════════════
+   EMOSENSE SPACES — Twitter Spaces-Style Audio Rooms
+   ═══════════════════════════════════════════════════ */
+
+.vr-page { padding: 0 0 4rem; min-height: 100vh; }
+
+/* Hero */
+.vr-hero {
+  position: relative; padding: 3.5rem 2rem; text-align: center;
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #4c1d95 100%);
+  border-radius: 0 0 24px 24px; overflow: hidden; margin-bottom: 2rem;
+}
+.vr-hero-content { position: relative; z-index: 2; }
+.vr-hero-glow {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 500px; height: 500px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.3) 0%, transparent 70%);
+  animation: vrGlow 4s ease-in-out infinite alternate;
+}
+@keyframes vrGlow { 0% { transform: translate(-50%,-50%) scale(0.8); opacity: 0.4; } 100% { transform: translate(-50%,-50%) scale(1.3); opacity: 1; } }
+.vr-hero-icon { font-size: 3rem; margin-bottom: 0.75rem; filter: drop-shadow(0 0 24px rgba(168,85,247,0.6)); }
+.vr-title { font-size: 2.25rem; color: white; margin-bottom: 0.5rem; font-weight: 800; letter-spacing: -0.02em; }
+.vr-subtitle { color: rgba(255,255,255,0.6); font-size: 1rem; max-width: 500px; margin: 0 auto; line-height: 1.5; }
+
+/* Room Cards Grid */
+.vr-rooms-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem; padding: 0 2rem; max-width: 1100px; margin: 0 auto;
+}
+
+.vr-room-card {
+  position: relative; border-radius: 20px; overflow: hidden; cursor: pointer;
+  background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(168, 85, 247, 0.1);
+  backdrop-filter: blur(12px); transition: all 0.3s ease;
+}
+.vr-room-card:hover { transform: translateY(-4px); border-color: rgba(168,85,247,0.3); box-shadow: 0 12px 40px rgba(168,85,247,0.15); }
+.vr-room-card.has-people { border-color: rgba(168,85,247,0.3); }
+.vr-room-card.has-people::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, #a855f7, #7c3aed, #a855f7);
+  background-size: 200% 100%; animation: liveBar 2s linear infinite;
+}
+@keyframes liveBar { 0% { background-position: 0% 0%; } 100% { background-position: 200% 0%; } }
+.vr-card-glow { display: none; }
+.vr-card-content { padding: 1.5rem; }
+.vr-card-icon { font-size: 2rem; margin-bottom: 0.75rem; }
+.vr-card-name { font-size: 1.1rem; font-weight: 700; color: white; margin-bottom: 0.35rem; }
+.vr-card-desc { font-size: 0.8rem; color: rgba(255,255,255,0.5); line-height: 1.4; margin-bottom: 1rem; }
+.vr-card-footer { display: flex; justify-content: space-between; align-items: center; }
+.vr-card-count { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: rgba(255,255,255,0.4); }
+.vr-card-count.active { color: #a855f7; }
+.vr-card-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); }
+.vr-card-count.active .vr-card-dot { background: #a855f7; animation: livePulse 1.5s infinite; }
+@keyframes livePulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.vr-join-btn {
+  padding: 0.5rem 1.25rem; border-radius: 20px; border: none; font-size: 0.8rem;
+  font-weight: 700; cursor: pointer; transition: all 0.2s;
+  background: linear-gradient(135deg, #7c3aed, #a855f7); color: white;
+}
+.vr-join-btn:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(168,85,247,0.4); }
+
+/* Live Badge */
+.vr-live-badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px;
+  border-radius: 10px; background: rgba(239,68,68,0.15); color: #ef4444;
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.vr-live-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; animation: livePulse 1s infinite; }
+
+/* ──── Role Selection Modal ──── */
+.vr-modal {
+  position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center;
+  justify-content: center; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+}
+.vr-role-dialog {
+  background: #1e293b; border: 1px solid rgba(168,85,247,0.2); border-radius: 24px;
+  padding: 2rem; max-width: 420px; width: 90%; color: white; text-align: center;
+}
+.vr-role-dialog h2 { font-size: 1.4rem; margin-bottom: 0.5rem; }
+.vr-role-dialog p { color: rgba(255,255,255,0.5); font-size: 0.85rem; margin-bottom: 1.5rem; }
+.vr-role-options { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
+.vr-role-btn {
+  display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04);
+  color: white; cursor: pointer; text-align: left; transition: all 0.2s;
+}
+.vr-role-btn:hover { background: rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.3); }
+.vr-role-btn.counsellor { border-color: rgba(168,85,247,0.25); }
+.vr-role-icon { font-size: 1.5rem; }
+.vr-role-name { font-weight: 700; font-size: 0.95rem; display: block; }
+.vr-role-desc { font-size: 0.75rem; color: rgba(255,255,255,0.4); display: block; }
+.vr-role-cancel {
+  margin-top: 0.5rem; padding: 0.5rem 1.5rem; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1); background: transparent; color: rgba(255,255,255,0.5);
+  cursor: pointer; font-size: 0.85rem;
+}
+
+/* Student name input */
+.vr-name-input-area { margin-top: 1rem; display: flex; gap: 0.5rem; }
+.vr-name-input {
+  flex: 1; padding: 0.6rem 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06); color: white; font-size: 0.9rem; outline: none;
+}
+.vr-name-input::placeholder { color: rgba(255,255,255,0.3); }
+.vr-name-input:focus { border-color: rgba(168,85,247,0.5); }
+.vr-name-join-btn {
+  padding: 0.6rem 1.25rem; border-radius: 12px; border: none;
+  background: linear-gradient(135deg, #7c3aed, #a855f7); color: white;
+  font-weight: 700; cursor: pointer; font-size: 0.85rem;
+}
+
+/* Counsellor login */
+.vr-counsellor-login { margin-top: 1rem; }
+.vr-login-input {
+  width: 100%; padding: 0.6rem 1rem; border-radius: 12px; margin-bottom: 0.5rem;
+  border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06);
+  color: white; font-size: 0.9rem; outline: none; box-sizing: border-box;
+}
+.vr-login-input::placeholder { color: rgba(255,255,255,0.3); }
+.vr-login-input:focus { border-color: rgba(168,85,247,0.5); }
+.vr-login-btn {
+  width: 100%; padding: 0.65rem; border-radius: 12px; border: none;
+  background: linear-gradient(135deg, #7c3aed, #a855f7); color: white;
+  font-weight: 700; cursor: pointer; font-size: 0.9rem;
+}
+.vr-login-error { color: #f87171; font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.2em; }
+
+/* ──── In-Room Modal (Twitter Spaces Layout) ──── */
+.vr-modal-content {
+  background: #0f172a; border-radius: 24px; max-width: 720px; width: 95%;
+  max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid rgba(168,85,247,0.15); box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
+
+/* Room Header */
+.vr-modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1rem 1.5rem; border-bottom: 1px solid rgba(168,85,247,0.1);
+  background: rgba(30,41,59,0.8);
+}
+.vr-participant-badge {
+  display: flex; align-items: center; gap: 6px; padding: 4px 12px;
+  border-radius: 20px; background: rgba(168,85,247,0.15); color: #c4b5fd;
+  font-size: 0.8rem; font-weight: 600;
+}
+.vr-pulse { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; animation: livePulse 1s infinite; }
+.vr-leave-btn {
+  padding: 0.4rem 1rem; border-radius: 20px; border: none;
+  background: rgba(239,68,68,0.15); color: #f87171; font-weight: 700;
+  font-size: 0.8rem; cursor: pointer; transition: all 0.2s;
+}
+.vr-leave-btn:hover { background: #ef4444; color: white; }
+
+/* Stage (Speakers) */
+.vr-stage {
+  padding: 1.5rem; text-align: center;
+  background: linear-gradient(180deg, rgba(168,85,247,0.06) 0%, transparent 100%);
+}
+.vr-stage-label {
+  font-size: 0.7rem; font-weight: 700; color: #a855f7; text-transform: uppercase;
+  letter-spacing: 0.08em; margin-bottom: 1rem;
+}
+
+/* Speaker Avatars */
+.vr-speakers-grid { display: flex; flex-wrap: wrap; gap: 1.25rem; justify-content: center; min-height: 80px; align-items: center; }
+.vr-avatar {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative;
+}
+.vr-avatar-circle {
+  width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-size: 1.5rem; background: rgba(168,85,247,0.15);
+  border: 3px solid rgba(168,85,247,0.3); position: relative; transition: all 0.3s;
+}
+.vr-avatar-circle.speaking {
+  border-color: #a855f7; box-shadow: 0 0 0 4px rgba(168,85,247,0.2), 0 0 20px rgba(168,85,247,0.3);
+  animation: speakRing 1.5s ease-in-out infinite;
+}
+@keyframes speakRing {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(168,85,247,0.2), 0 0 20px rgba(168,85,247,0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(168,85,247,0.1), 0 0 30px rgba(168,85,247,0.4); }
+}
+.vr-avatar-circle.host { border-color: #f59e0b; }
+.vr-avatar-circle.host::after {
+  content: '⭐'; position: absolute; top: -6px; right: -6px; font-size: 0.8rem;
+  background: #f59e0b; border-radius: 50%; width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center; font-size: 0.6rem;
+}
+.vr-avatar-name {
+  font-size: 0.7rem; color: rgba(255,255,255,0.7); max-width: 80px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
+}
+.vr-avatar-hand {
+  position: absolute; top: -6px; right: -6px; font-size: 0.75rem;
+  background: #f59e0b; border-radius: 50%; width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Listeners Grid */
+.vr-listeners-section { padding: 1rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.05); }
+.vr-listeners-label {
+  font-size: 0.7rem; font-weight: 700; color: rgba(255,255,255,0.3);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem;
+}
+.vr-listeners-grid { display: flex; flex-wrap: wrap; gap: 0.75rem; min-height: 40px; align-items: center; }
+.vr-listener-avatar {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.vr-listener-circle {
+  width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-size: 1rem; background: rgba(255,255,255,0.06);
+  border: 2px solid rgba(255,255,255,0.08);
+}
+.vr-listener-name {
+  font-size: 0.6rem; color: rgba(255,255,255,0.4); max-width: 56px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
+}
+
+/* Chat Messages Area */
+.vr-messages {
+  flex: 1; overflow-y: auto; padding: 0.75rem 1.5rem;
+  background: rgba(15,23,42,0.5); min-height: 100px; max-height: 200px;
+}
+.vr-sys-msg {
+  text-align: center; font-size: 0.75rem; color: rgba(168,85,247,0.6);
+  padding: 4px 0; font-style: italic;
+}
+.vr-msg { margin-bottom: 0.5rem; }
+.vr-msg-sender { font-size: 0.7rem; font-weight: 600; color: rgba(255,255,255,0.5); margin-bottom: 2px; }
+.vr-msg-bubble {
+  display: inline-block; padding: 6px 12px; border-radius: 12px;
+  background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 0.85rem;
+  max-width: 80%; word-wrap: break-word;
+}
+.vr-msg.own .vr-msg-bubble { background: rgba(168,85,247,0.2); }
+.vr-msg.own { text-align: right; }
+.vr-msg.own .vr-msg-sender { text-align: right; }
+.vr-msg-time { font-size: 0.6rem; color: rgba(255,255,255,0.2); padding: 0 4px; }
+.vr-msg.own .vr-msg-time { text-align: right; }
+.vr-role-badge { font-size: 0.65rem; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
+.vr-role-badge.counsellor { background: rgba(168,85,247,0.2); color: #c4b5fd; }
+
+/* File Messages */
+.vr-file-bubble { padding: 8px !important; }
+.vr-file-preview-img { max-width: 280px; max-height: 200px; border-radius: 12px; cursor: pointer; display: block; }
+.vr-file-preview-video { max-width: 300px; max-height: 220px; border-radius: 12px; display: block; }
+.vr-file-link {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: rgba(168,85,247,0.1); border-radius: 10px; color: #c4b5fd;
+  text-decoration: none; font-size: 0.85rem;
+}
+.vr-file-link:hover { background: rgba(168,85,247,0.2); }
+
+/* Chat Input */
+.vr-input-area { padding: 0.75rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.05); background: rgba(15,23,42,0.9); }
+.vr-input-row { display: flex; align-items: center; gap: 0.5rem; }
+.vr-attach-btn {
+  width: 36px; height: 36px; min-width: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.4); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+}
+.vr-chat-input {
+  flex: 1; padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04); color: white; font-size: 0.85rem; outline: none;
+}
+.vr-chat-input::placeholder { color: rgba(255,255,255,0.25); }
+.vr-chat-input:focus { border-color: rgba(168,85,247,0.4); }
+.vr-send-btn {
+  width: 36px; height: 36px; min-width: 36px; border-radius: 50%; border: none;
+  background: linear-gradient(135deg, #7c3aed, #a855f7); color: white;
+  cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center;
+}
+
+/* ──── Bottom Control Bar (Spaces-style) ──── */
+.vr-controls-bar {
+  display: flex; justify-content: center; align-items: center; gap: 0.75rem;
+  padding: 0.75rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.06);
+  background: rgba(30,41,59,0.8); backdrop-filter: blur(12px);
+}
+.vr-ctrl-btn {
+  display: flex; align-items: center; gap: 6px; padding: 0.5rem 1rem;
+  border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.7);
+  cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.2s;
+}
+.vr-ctrl-btn:hover { background: rgba(255,255,255,0.08); color: white; }
+.vr-ctrl-btn.muted { color: rgba(255,255,255,0.3); }
+.vr-ctrl-btn.active, .vr-ctrl-btn.raised { background: rgba(168,85,247,0.2); color: #c4b5fd; border-color: rgba(168,85,247,0.3); }
+
+/* Reaction Buttons */
+.vr-react-bar { display: flex; gap: 4px; }
+.vr-react-btn {
+  width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.03); cursor: pointer; font-size: 1rem;
+  display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+.vr-react-btn:hover { transform: scale(1.2); background: rgba(255,255,255,0.08); }
+
+/* Floating Reactions */
+.vr-floating-reaction {
+  position: absolute; bottom: 80px; font-size: 1.5rem; pointer-events: none;
+  animation: floatUp 2s ease-out forwards; opacity: 0;
+}
+@keyframes floatUp {
+  0% { transform: translateY(0) scale(0.5); opacity: 1; }
+  100% { transform: translateY(-200px) scale(1.2); opacity: 0; }
+}
+
+/* Counselor Controls Sidebar */
+.vr-counselor-panel {
+  width: 220px; border-left: 1px solid rgba(255,255,255,0.05);
+  background: rgba(15,23,42,0.6); overflow-y: auto; padding: 1rem;
+}
+
+/* Video Grid */
+.vr-video-grid { display: none; }
+.vr-video-feed { border-radius: 12px; max-width: 200px; }
+
+/* Loading & Error States */
+.vr-loading { text-align: center; padding: 3rem; color: rgba(255,255,255,0.4); }
+.vr-loading-spinner {
+  width: 32px; height: 32px; border: 3px solid rgba(168,85,247,0.2);
+  border-top-color: #a855f7; border-radius: 50%; margin: 0 auto 1rem;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.vr-error { text-align: center; padding: 3rem; color: rgba(255,255,255,0.4); }
+
+/* ──── Mobile ──── */
+@media (max-width: 640px) {
+  .vr-rooms-grid { grid-template-columns: 1fr; padding: 0 1rem; }
+  .vr-title { font-size: 1.5rem; }
+  .vr-subtitle { font-size: 0.85rem; }
+  .vr-modal-content { max-width: 100%; border-radius: 16px; max-height: 95vh; }
+  .vr-modal-header { padding: 0.75rem 1rem; }
+  .vr-avatar-circle { width: 52px; height: 52px; font-size: 1.2rem; }
+  .vr-controls-bar { gap: 0.5rem; padding: 0.5rem; flex-wrap: wrap; }
+  .vr-ctrl-btn { padding: 0.4rem 0.75rem; font-size: 0.75rem; }
+  .vr-counselor-panel { display: none !important; }
+}

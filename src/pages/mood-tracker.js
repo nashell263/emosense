@@ -254,7 +254,7 @@ function renderLineChart() {
   ctx.clearRect(0, 0, w, h);
 
   // Grid
-  ctx.strokeStyle = '#e5e7eb';
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
   ctx.lineWidth = 1;
   for (let i = 0; i <= 5; i++) {
     const y = pad.top + ch - (i / 5) * ch;
@@ -263,7 +263,7 @@ function renderLineChart() {
     ctx.lineTo(w - pad.right, y);
     ctx.stroke();
     ctx.font = '10px Inter, sans-serif';
-    ctx.fillStyle = '#9ca3af';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.textAlign = 'right';
     ctx.fillText(i.toString(), pad.left - 6, y + 4);
   }
@@ -282,14 +282,14 @@ function renderLineChart() {
   ctx.lineTo(points[points.length - 1].x, pad.top + ch);
   ctx.closePath();
   const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch);
-  grad.addColorStop(0, 'rgba(13, 148, 136, 0.2)');
-  grad.addColorStop(1, 'rgba(13, 148, 136, 0.02)');
+  grad.addColorStop(0, 'rgba(129, 140, 248, 0.2)');
+  grad.addColorStop(1, 'rgba(129, 140, 248, 0.02)');
   ctx.fillStyle = grad;
   ctx.fill();
 
   // Smooth line
   ctx.beginPath();
-  ctx.strokeStyle = '#0d9488';
+  ctx.strokeStyle = '#818cf8';
   ctx.lineWidth = 2.5;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
@@ -311,7 +311,7 @@ function renderLineChart() {
   points.forEach(p => {
     ctx.beginPath();
     ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-    ctx.fillStyle = '#0d9488';
+    ctx.fillStyle = '#818cf8';
     ctx.fill();
     ctx.beginPath();
     ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
@@ -321,7 +321,7 @@ function renderLineChart() {
 
   // X labels (dates)
   ctx.font = '10px Inter, sans-serif';
-  ctx.fillStyle = '#9ca3af';
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
   ctx.textAlign = 'center';
   points.forEach((p, i) => {
     if (history.length <= 7 || i % 2 === 0) {
@@ -385,7 +385,7 @@ function renderDonutChart() {
     const lx = cx + Math.cos(midAngle) * labelR;
     const ly = cy + Math.sin(midAngle) * labelR;
     ctx.font = '10px Inter, sans-serif';
-    ctx.fillStyle = '#374151';
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.textAlign = Math.cos(midAngle) > 0 ? 'left' : 'right';
     ctx.fillText(`${entry.label} (${entry.count})`, lx, ly);
 

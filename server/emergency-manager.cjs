@@ -15,6 +15,10 @@ let vonageClient = null;
 let atSms = null;
 let activeSmsProvider = 'none';
 
+// Infobip Voice
+let infobipApiKey = null;
+let infobipBaseUrl = null;
+
 // Email
 let emailTransporter = null;
 let adminEmail = null;
@@ -113,7 +117,52 @@ function init(io, config = {}) {
         console.log('⚠️ Email alerts not configured — set EMAIL_USER and EMAIL_PASS in .env');
     }
 
+    // Infobip Voice TTS
+    infobipApiKey = config.infobipApiKey || process.env.INFOBIP_API_KEY;
+    infobipBaseUrl = config.infobipBaseUrl || process.env.INFOBIP_BASE_URL;
+    if (infobipApiKey && infobipBaseUrl) {
+        console.log(`✅ Infobip Voice initialized (${infobipBaseUrl})`);
+    } else {
+        console.log('⚠️ Infobip Voice not configured — set INFOBIP_API_KEY and INFOBIP_BASE_URL in .env');
+    }
+
     console.log(`   📱 WhatsApp alerts: ✅ via wa.me link (supervisor: ${adminPhoneNumber})`);
+}
+
+/**
+ * Make a voice call via Infobip TTS API
+ * Calls the target phone and reads the message aloud
+ */
+async function makeInfobipVoiceCall(targetPhone, message) {
+    if (!infobipApiKey || !infobipBaseUrl) {
+        console.log(`[INFOBIP MOCK → ${targetPhone}] ${message}`);
+        return { success: false, reason: 'infobip_not_configured' };
+    }
+
+    const phonePlus = targetPhone.startsWith('+') ? targetPhone : '+' + targetPhone;
+    try {
+        const resp = await fetch(`https://${infobipBaseUrl}/tts/3/single`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `App ${infobipApiKey}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                from: 'EmoSense',
+                to: phonePlus,
+                text: message,
+                language: 'en',
+                voice: { name: 'Joanna', gender: 'female' }
+            })
+        });
+        const data = await resp.json();
+        console.log(`✅ Infobip voice call to ${targetPhone}:`, JSON.stringify(data));
+        return { success: resp.ok, data };
+    } catch (err) {
+        console.error(`❌ Infobip voice call failed:`, err.message);
+        return { success: false, reason: err.message };
+    }
 }
 
 /**
@@ -265,7 +314,39 @@ async function notifyEmergency(channels, alert, targetPhone) {
     if (channels.includes('EMAIL')) {
         if (emailTransporter && adminEmail) {
             try {
-                const locationInfo = alert.location_address ? `\nLocation: ${alert.location_address}` : '';
+                // Build phone row for email
+                const studentPhone = alert.contact_info || '';
+                const phoneClean = studentPhone.replace(/[\s\-\(\)]/g, '');
+                const phoneForWA = phoneClean.startsWith('0') ? '263' + phoneClean.substring(1) : phoneClean.replace('+', '');
+                const phoneFull = phoneClean.startsWith('0') ? '+263' + phoneClean.substring(1) : (phoneClean.startsWith('+') ? phoneClean : '+' + phoneClean);
+
+                const phoneRow = studentPhone ? `
+                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">📱 Phone:</td><td style="padding:8px 0;">
+                        <span style="font-size:1.1rem;font-weight:700;color:#059669;">${studentPhone}</span><br/>
+                        <a href="https://wa.me/${phoneForWA}" style="display:inline-block;margin-top:4px;padding:4px 12px;background:#25D366;color:white;border-radius:6px;font-size:0.8rem;text-decoration:none;font-weight:600;">💬 WhatsApp</a>
+                        <a href="tel:${phoneFull}" style="display:inline-block;margin-top:4px;margin-left:6px;padding:4px 12px;background:#059669;color:white;border-radius:6px;font-size:0.8rem;text-decoration:none;font-weight:600;">📞 Call</a>
+                    </td></tr>` : '';
+
+                const locationRow = alert.location_address ? `
+                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">📍 Location:</td><td style="padding:8px 0;">
+                        <strong>${alert.location_address}</strong><br/>
+                        <span style="color:#6b7280;font-size:0.85rem;">Coordinates: ${alert.latitude?.toFixed?.(5) || alert.latitude}, ${alert.longitude?.toFixed?.(5) || alert.longitude}</span><br/>
+                        <a href="https://maps.google.com/?q=${alert.latitude},${alert.longitude}" style="display:inline-block;margin-top:4px;padding:4px 12px;background:#4285F4;color:white;border-radius:6px;font-size:0.8rem;text-decoration:none;font-weight:600;">📍 Open in Google Maps</a>
+                    </td></tr>` : '';
+
+                // Triage details
+                let triageInfo = '';
+                try {
+                    const ta = alert.triage_answers ? (typeof alert.triage_answers === 'string' ? JSON.parse(alert.triage_answers) : alert.triage_answers) : null;
+                    if (ta) {
+                        const tags = [];
+                        if (ta.danger) tags.push('<span style="background:#fecaca;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;">⚠️ In Danger</span>');
+                        if (ta.selfharm) tags.push('<span style="background:#fecaca;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;">🚨 Self-Harm Risk</span>');
+                        if (ta.urgent) tags.push('<span style="background:#fed7aa;color:#9a3412;padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;">🔴 Urgent</span>');
+                        if (tags.length) triageInfo = `<tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Triage:</td><td style="padding:8px 0;">${tags.join(' ')}</td></tr>`;
+                    }
+                } catch(e) {}
+
                 await emailTransporter.sendMail({
                     from: process.env.EMAIL_USER,
                     to: adminEmail,
@@ -274,18 +355,21 @@ async function notifyEmergency(channels, alert, targetPhone) {
                         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
                             <div style="background:linear-gradient(135deg,#dc2626,#991b1b);color:white;padding:20px;border-radius:12px 12px 0 0;">
                                 <h1 style="margin:0;font-size:1.4rem;">🚨 EMERGENCY SOS ALERT</h1>
+                                <p style="margin:4px 0 0;font-size:0.9rem;opacity:0.9;">EmoSense Crisis Management System — Midlands State University</p>
                             </div>
                             <div style="padding:20px;background:#fff;border:1px solid #e5e7eb;border-radius:0 0 12px 12px;">
                                 <table style="width:100%;border-collapse:collapse;">
-                                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Student:</td><td style="padding:8px 0;">${alert.student_alias}</td></tr>
+                                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Student:</td><td style="padding:8px 0;font-weight:600;">${alert.student_alias}</td></tr>
                                     <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Severity:</td><td style="padding:8px 0;"><span style="background:${alert.severity === 'critical' ? '#dc2626' : '#ea580c'};color:white;padding:2px 10px;border-radius:12px;font-size:0.8rem;">${(alert.severity || 'high').toUpperCase()}</span></td></tr>
+                                    ${phoneRow}
                                     <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Message:</td><td style="padding:8px 0;">${alert.trigger_message || alert.quick_message || 'SOS activated'}</td></tr>
+                                    ${triageInfo}
                                     <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Method:</td><td style="padding:8px 0;">${alert.contact_method}</td></tr>
                                     <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Time:</td><td style="padding:8px 0;">${new Date().toLocaleString()}</td></tr>
-                                    ${alert.location_address ? `<tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Location:</td><td style="padding:8px 0;"><a href="https://maps.google.com/?q=${alert.latitude},${alert.longitude}">${alert.location_address}</a></td></tr>` : ''}
+                                    ${locationRow}
                                 </table>
                                 <div style="margin-top:16px;padding:12px;background:#fef2f2;border-radius:8px;color:#991b1b;font-weight:600;">
-                                    Please check the EmoSense counselor dashboard immediately.
+                                    ⚠️ Please check the EmoSense counselor dashboard immediately and contact this student.
                                 </div>
                             </div>
                         </div>
@@ -380,13 +464,122 @@ function acknowledgeSOS(alertId) {
     activeTimers.delete(`${alertId}-L2`);
 }
 
+/**
+ * Send SOS alert email to ALL registered counselors
+ * Uses the existing Nodemailer transporter (nashelliphone@gmail.com sender)
+ */
+async function notifyCounselorsEmail(alert) {
+    if (!emailTransporter) {
+        console.log('[EMAIL] Transporter not configured — skipping counselor email broadcast');
+        return { success: false, reason: 'email_not_configured' };
+    }
+
+    const db = getDb();
+    let counselors;
+    try {
+        counselors = db.prepare("SELECT email, name FROM counselors WHERE email IS NOT NULL AND email != ''").all();
+    } catch (err) {
+        console.error('[EMAIL] Failed to query counselor emails:', err.message);
+        return { success: false, reason: err.message };
+    }
+
+    if (!counselors || counselors.length === 0) {
+        console.log('[EMAIL] No counselor emails found in database');
+        return { success: false, reason: 'no_counselors' };
+    }
+
+    // Send to ALL registered counselor emails
+    const counselorEmails = counselors
+        .map(c => c.email)
+        .filter(email => email && email.trim() !== '');
+
+    if (counselorEmails.length === 0) {
+        console.log('[EMAIL] No counselor emails found to send to');
+        return { success: true, sent: 0 };
+    }
+
+    console.log(`📧 Sending SOS alert to ${counselorEmails.length} counselor email(s): ${counselorEmails.join(', ')}`);
+
+    // Build phone row for email
+    const studentPhone = alert.contact_info || '';
+    const phoneClean = studentPhone.replace(/[\s\-\(\)]/g, '');
+    const phoneForWA = phoneClean.startsWith('0') ? '263' + phoneClean.substring(1) : phoneClean.replace('+', '');
+    const phoneFull = phoneClean.startsWith('0') ? '+263' + phoneClean.substring(1) : (phoneClean.startsWith('+') ? phoneClean : '+' + phoneClean);
+
+    const phoneRow = studentPhone ? `
+        <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">📱 Phone:</td><td style="padding:8px 0;">
+            <span style="font-size:1.1rem;font-weight:700;color:#059669;">${studentPhone}</span><br/>
+            <a href="https://wa.me/${phoneForWA}" style="display:inline-block;margin-top:4px;padding:4px 12px;background:#25D366;color:white;border-radius:6px;font-size:0.8rem;text-decoration:none;font-weight:600;">💬 WhatsApp</a>
+            <a href="tel:${phoneFull}" style="display:inline-block;margin-top:4px;margin-left:6px;padding:4px 12px;background:#059669;color:white;border-radius:6px;font-size:0.8rem;text-decoration:none;font-weight:600;">📞 Call</a>
+        </td></tr>` : '';
+
+    const locationRow = alert.location_address ? `
+        <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">📍 Location:</td><td style="padding:8px 0;">
+            <strong>${alert.location_address}</strong><br/>
+            <span style="color:#6b7280;font-size:0.85rem;">Coordinates: ${alert.latitude?.toFixed?.(5) || alert.latitude || 'N/A'}, ${alert.longitude?.toFixed?.(5) || alert.longitude || 'N/A'}</span><br/>
+            <a href="https://maps.google.com/?q=${alert.latitude},${alert.longitude}" style="display:inline-block;margin-top:4px;padding:4px 12px;background:#4285F4;color:white;border-radius:6px;font-size:0.8rem;text-decoration:none;font-weight:600;">📍 Open in Google Maps</a>
+        </td></tr>` : '';
+
+    const emailHtml = `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+            <div style="background:linear-gradient(135deg,#dc2626,#991b1b);color:white;padding:20px;border-radius:12px 12px 0 0;">
+                <h1 style="margin:0;font-size:1.4rem;">🚨 SOS EMERGENCY ALERT</h1>
+                <p style="margin:4px 0 0;font-size:0.9rem;opacity:0.9;">EmoSense Crisis Management — Midlands State University</p>
+            </div>
+            <div style="padding:20px;background:#fff;border:1px solid #e5e7eb;border-radius:0 0 12px 12px;">
+                <div style="padding:12px;background:#fef2f2;border-radius:8px;color:#991b1b;font-weight:600;margin-bottom:16px;">
+                    ⚠️ A student has activated the SOS emergency button. Please check the EmoSense counselor dashboard immediately.
+                </div>
+                <table style="width:100%;border-collapse:collapse;">
+                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Student:</td><td style="padding:8px 0;font-weight:600;">${alert.student_alias || 'Anonymous'}</td></tr>
+                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Severity:</td><td style="padding:8px 0;"><span style="background:${alert.severity === 'critical' ? '#dc2626' : '#ea580c'};color:white;padding:2px 10px;border-radius:12px;font-size:0.8rem;">${(alert.severity || 'high').toUpperCase()}</span></td></tr>
+                    ${phoneRow}
+                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Message:</td><td style="padding:8px 0;">${alert.trigger_message || alert.quick_message || 'SOS activated'}</td></tr>
+                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Method:</td><td style="padding:8px 0;">${alert.contact_method || 'chat'}</td></tr>
+                    <tr><td style="padding:8px 0;font-weight:bold;color:#374151;">Time:</td><td style="padding:8px 0;">${new Date().toLocaleString()}</td></tr>
+                    ${locationRow}
+                </table>
+                <div style="margin-top:20px;text-align:center;">
+                    <a href="${process.env.RENDER_EXTERNAL_URL || 'https://emosense.onrender.com'}/#dashboard" style="display:inline-block;padding:10px 24px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem;">Open Counselor Dashboard →</a>
+                </div>
+                <p style="margin-top:16px;font-size:0.75rem;color:#9ca3af;text-align:center;">
+                    You are receiving this because you are a registered EmoSense counselor. Your email was used for emergency SOS notifications.
+                </p>
+            </div>
+        </div>
+    `;
+
+    const results = [];
+    for (const email of counselorEmails) {
+        try {
+            await emailTransporter.sendMail({
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: `🚨 EmoSense SOS ALERT — ${(alert.severity || 'HIGH').toUpperCase()} — ${alert.student_alias || 'Student'}`,
+                html: emailHtml
+            });
+            console.log(`  ✅ SOS email sent to counselor: ${email}`);
+            results.push({ email, success: true });
+        } catch (err) {
+            console.error(`  ❌ Failed to email ${email}:`, err.message);
+            results.push({ email, success: false, reason: err.message });
+        }
+    }
+
+    const sentCount = results.filter(r => r.success).length;
+    console.log(`📧 Counselor email broadcast complete: ${sentCount}/${counselorEmails.length} sent`);
+    return { success: true, sent: sentCount, total: counselorEmails.length, results };
+}
+
 module.exports = {
     init,
     triggerSOS,
     escalateSOS,
     acknowledgeSOS,
     notifyEmergency,
+    notifyCounselorsEmail,
     sendSMS,
+    makeInfobipVoiceCall,
     getWhatsAppAlertUrl,
     getCallUrl
 };
